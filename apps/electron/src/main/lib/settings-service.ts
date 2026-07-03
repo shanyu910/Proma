@@ -11,6 +11,13 @@ import { DEFAULT_INTERFACE_VARIANT, DEFAULT_THEME_MODE } from '../../types'
 import type { AppSettings } from '../../types'
 
 /**
+ * Legis-Server 认证服务默认地址
+ *
+ * 用户可在 ~/.legis/settings.json 的 authServerUrl 字段覆盖此默认值。
+ */
+export const DEFAULT_AUTH_SERVER_URL = 'http://14.103.216.135:31006'
+
+/**
  * 获取应用设置
  *
  * 如果文件不存在，返回默认设置。
@@ -28,6 +35,7 @@ export function getSettings(): AppSettings {
       longTextPasteAsAttachmentEnabled: false,
       feishuSessionMirror: { mode: 'off' },
       builtinMcpDisabledIds: [],
+      authServerUrl: DEFAULT_AUTH_SERVER_URL,
     }
   }
 
@@ -44,6 +52,7 @@ export function getSettings(): AppSettings {
       longTextPasteAsAttachmentEnabled: data.longTextPasteAsAttachmentEnabled ?? false,
       feishuSessionMirror: data.feishuSessionMirror ?? { mode: 'off' },
       builtinMcpDisabledIds: data.builtinMcpDisabledIds ?? [],
+      authServerUrl: data.authServerUrl || DEFAULT_AUTH_SERVER_URL,
     }
   } catch (error) {
     console.error('[设置] 读取失败:', error)
@@ -56,6 +65,7 @@ export function getSettings(): AppSettings {
       longTextPasteAsAttachmentEnabled: false,
       feishuSessionMirror: { mode: 'off' },
       builtinMcpDisabledIds: [],
+      authServerUrl: DEFAULT_AUTH_SERVER_URL,
     }
   }
 }
