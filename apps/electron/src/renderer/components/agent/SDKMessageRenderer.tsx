@@ -22,7 +22,7 @@ import { TurnFileChangesSummary } from './TurnFileChangesSummary'
 import { ProcessBlockGroup, buildAssistantTurnRenderItems, buildCompletedToolResultIds } from './ProcessBlockGroup'
 import { extractToolResultText, parseTaskCreateResult, TASK_TOOL_NAMES } from './task-progress'
 import { normalizeThinkTagsInContentBlocks } from './thinking-tag-parser'
-// 会话转录的纯逻辑(Turn 分组 / 快照去重 / 预览)已下沉到 @proma/session-core 作为唯一真源。
+// 会话转录的纯逻辑(Turn 分组 / 快照去重 / 预览)已下沉到 @legis/session-core 作为唯一真源。
 // 这里 import 供本文件内部使用，并 re-export 以保持既有 `from './SDKMessageRenderer'` 导入方零改动。
 import {
   groupIntoTurns,
@@ -33,9 +33,9 @@ import {
   stripScheduledRunMarker,
   type MessageGroup,
   type AssistantTurn,
-} from '@proma/session-core'
-export { groupIntoTurns, getGroupPreview, extractUserText } from '@proma/session-core'
-export type { MessageGroup, AssistantTurn } from '@proma/session-core'
+} from '@legis/session-core'
+export { groupIntoTurns, getGroupPreview, extractUserText } from '@legis/session-core'
+export type { MessageGroup, AssistantTurn } from '@legis/session-core'
 import { DurationBadge } from './AgentMessages'
 import {
   Message,
@@ -74,14 +74,14 @@ import type {
   SDKToolUseBlock,
   SDKToolResultBlock,
   RecoveryAction,
-} from '@proma/shared'
-import type { AgentPendingFile } from '@proma/shared'
+} from '@legis/shared'
+import type { AgentPendingFile } from '@legis/shared'
 import {
   THINKING_SIGNATURE_ERROR_CODE,
   THINKING_SIGNATURE_ERROR_TITLE,
   THINKING_SIGNATURE_ERROR_MESSAGE,
   isThinkingSignatureError,
-} from '@proma/shared'
+} from '@legis/shared'
 import type { ToolActivity } from '@/atoms/agent-atoms'
 
 // ===== SDKMessageRenderer Props =====
@@ -166,7 +166,7 @@ export function CompactingIndicator(): React.ReactElement {
   )
 }
 
-// extractMeta / MessageMeta 已迁移至 @proma/session-core
+// extractMeta / MessageMeta 已迁移至 @legis/session-core
 
 /** 从 turn 消息列表中提取 result 消息的耗时和用量数据 */
 function extractTurnUsage(turnMessages: SDKMessage[]): { durationMs?: number; usage?: AgentEventUsage } {
@@ -195,7 +195,7 @@ function extractTurnUsage(turnMessages: SDKMessage[]): { durationMs?: number; us
   return {}
 }
 
-// extractUserText 已迁移至 @proma/session-core
+// extractUserText 已迁移至 @legis/session-core
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -216,7 +216,7 @@ function extractToolResultForTask(message: SDKUserMessage, resultBlock: SDKToolR
   return extractStructuredToolResultText(message) ?? extractToolResultText(resultBlock.content)
 }
 
-// isUserInputMessage 已迁移至 @proma/session-core
+// isUserInputMessage 已迁移至 @legis/session-core
 
 // ===== 助手头像 =====
 
@@ -238,9 +238,9 @@ function AssistantLogo({ model }: { model?: string }): React.ReactElement {
   )
 }
 
-// AssistantTurn / MessageGroup 类型已迁移至 @proma/session-core
+// AssistantTurn / MessageGroup 类型已迁移至 @legis/session-core
 
-// groupIntoTurns / mergeAdjacentSameModelTurns 已迁移至 @proma/session-core
+// groupIntoTurns / mergeAdjacentSameModelTurns 已迁移至 @legis/session-core
 
 function buildTaskProgressData(
   topLevelBlocks: SDKContentBlock[],
@@ -843,7 +843,7 @@ function QuoteChip({ quote }: { quote: QuotedFileRef }): React.ReactElement {
 
 const SCHEDULED_RUN_MARKER = '<!--PROMA_SCHEDULED_RUN-->'
 
-// stripScheduledRunMarker 已迁移至 @proma/session-core（本文件从该包 import 使用）
+// stripScheduledRunMarker 已迁移至 @legis/session-core（本文件从该包 import 使用）
 
 function ScheduledRunBadge(): React.ReactElement {
   const activeSessionId = useAtomValue(activeSessionIdAtom)
@@ -1239,7 +1239,7 @@ export function getGroupId(group: MessageGroup): string {
   return `turn-empty-${++fallbackIdCounter}`
 }
 
-// getGroupPreview 已迁移至 @proma/session-core（本文件从该包 import 并 re-export）
+// getGroupPreview 已迁移至 @legis/session-core（本文件从该包 import 并 re-export）
 
 export function MessageGroupRenderer({ group, allMessages, historicalTaskSubjects, basePath, onFork, onRewind, onRetry, onRetryInNewSession, onCompact, isStreaming, stoppedByUser, sessionModelId }: MessageGroupRendererProps): React.ReactElement | null {
   const groupId = getGroupId(group)

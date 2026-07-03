@@ -1,4 +1,4 @@
-import type { AgentSessionMeta } from '@proma/shared'
+import type { AgentSessionMeta } from '@legis/shared'
 
 interface AgentSessionTreeLike {
   session: Pick<AgentSessionMeta, 'id'>

@@ -8,7 +8,7 @@ import type {
   SDKToolResultBlock,
   SDKToolUseBlock,
   SDKUserMessage,
-} from '@proma/shared'
+} from '@legis/shared'
 
 interface ProcessBlockGroupProps {
   blocks: SDKContentBlock[]

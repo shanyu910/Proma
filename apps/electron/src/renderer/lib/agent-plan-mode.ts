@@ -1,4 +1,4 @@
-import type { AgentPlanModeChangeSource, PromaPermissionMode } from '@proma/shared'
+import type { AgentPlanModeChangeSource, PromaPermissionMode } from '@legis/shared'
 
 export interface PlanModeChange {
   active: boolean

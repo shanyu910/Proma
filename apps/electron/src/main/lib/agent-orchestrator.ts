@@ -20,7 +20,7 @@ import { join, dirname } from 'node:path'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { app } from 'electron'
-import type { AgentSendInput, AgentMessage, AgentGenerateTitleInput, AgentProviderAdapter, AgentSessionMeta, TypedError, RetryAttempt, SDKMessage, SDKAssistantMessage, AgentStreamPayload, RewindSessionResult, ProviderType } from '@proma/shared'
+import type { AgentSendInput, AgentMessage, AgentGenerateTitleInput, AgentProviderAdapter, AgentSessionMeta, TypedError, RetryAttempt, SDKMessage, SDKAssistantMessage, AgentStreamPayload, RewindSessionResult, ProviderType } from '@legis/shared'
 import {
   PROMA_DEFAULT_PERMISSION_MODE,
   PROMA_PERMISSION_MODE_CONFIG,
@@ -28,14 +28,14 @@ import {
   THINKING_SIGNATURE_ERROR_MESSAGE,
   THINKING_SIGNATURE_ERROR_TITLE,
   normalizeMcpTransportType,
-} from '@proma/shared'
-import type { PromaPermissionMode, AskUserRequest, ExitPlanModeRequest } from '@proma/shared'
+} from '@legis/shared'
+import type { PromaPermissionMode, AskUserRequest, ExitPlanModeRequest } from '@legis/shared'
 import type { ClaudeAgentQueryOptions } from './adapters/claude-agent-adapter'
 import { isPromptTooLongError, isThinkingSignatureError, friendlyErrorMessage, mapSDKErrorToTypedError, extractErrorDetails, shouldKeepChannelOpen } from './adapters/claude-agent-adapter'
 import { isTransientNetworkError, isMalformedResponseError, isSessionNotFoundError } from './error-patterns'
 import { AgentEventBus } from './agent-event-bus'
 import { decryptApiKey, getChannelById, listChannels } from './channel-manager'
-import { getAdapter, fetchTitle, normalizeAnthropicBaseUrlForSdk, getPromaUserAgent } from '@proma/core'
+import { getAdapter, fetchTitle, normalizeAnthropicBaseUrlForSdk, getPromaUserAgent } from '@legis/core'
 import pkg from '../../../package.json' with { type: 'json' }
 import { getFetchFn } from './proxy-fetch'
 import { getEffectiveProxyUrl } from './proxy-settings-service'
@@ -279,7 +279,7 @@ function getSessionHistoryPath(sessionId: string): string {
 }
 
 function getSessionCliCommandPrefix(): string {
-  return getBundledCliPath() ? '"$PROMA_CLI"' : 'proma'
+  return getBundledCliPath() ? '"$LEGIS_CLI"' : 'legis'
 }
 
 function buildSessionCliAccessGuide(sessionId: string, historyPath: string): string {
@@ -575,7 +575,7 @@ export class AgentOrchestrator {
       // 暴露打包进 App 的 proma CLI 路径，供 session-cleaner 等 skill / Agent 调用
       // （开发模式无编译二进制，getBundledCliPath 返回 undefined，此处不注入，
       //   skill 回退到源码运行 bun apps/cli/src/index.ts）。
-      ...(getBundledCliPath() ? { PROMA_CLI: getBundledCliPath() } : {}),
+      ...(getBundledCliPath() ? { LEGIS_CLI: getBundledCliPath() } : {}),
       // 启用 Tasks 功能
       CLAUDE_CODE_ENABLE_TASKS: 'true',
       // 禁用实验性 beta 功能，使用稳定模式
@@ -850,7 +850,7 @@ export class AgentOrchestrator {
 
     const toPersist = accumulatedMessages.filter(
       (m) => m.type === 'assistant' || m.type === 'user' || m.type === 'result'
-        || (m.type === 'system' && ['compact_boundary', 'permission_denied'].includes((m as import('@proma/shared').SDKSystemMessage).subtype ?? ''))
+        || (m.type === 'system' && ['compact_boundary', 'permission_denied'].includes((m as import('@legis/shared').SDKSystemMessage).subtype ?? ''))
     ).filter((m) => {
       // 过滤 SDK 内部生成的 user 文本消息（如 Skill 展开 prompt），与实时流过滤逻辑一致
       if (m.type === 'user') {
@@ -1088,7 +1088,7 @@ export class AgentOrchestrator {
     let titleGenerationStarted = false
     let agentCwd: string | undefined
     let workspaceSlug: string | undefined
-    let workspace: import('@proma/shared').AgentWorkspace | undefined
+    let workspace: import('@legis/shared').AgentWorkspace | undefined
 
     try {
       // 8. 动态导入 SDK
@@ -1191,7 +1191,7 @@ export class AgentOrchestrator {
 
       // 9.6 直接信任已保存的 sdkSessionId，跳过 listSessions 预验证
       // 原因：listSessions({ dir }) 基于 cwd 路径哈希查找，但 session 级别的 cwd
-      // （如 ~/.proma/agent-workspaces/workspace-xxx/sessionId）与 SDK 内部存储的路径哈希可能不匹配，
+      // （如 ~/.legis/agent-workspaces/workspace-xxx/sessionId）与 SDK 内部存储的路径哈希可能不匹配，
       // 导致 listSessions 始终返回 0 个会话，误杀有效的 resume。
       // SDK 本身会优雅处理无效的 resume ID（回退为新会话），无需预验证。
       if (existingSdkSessionId) {
@@ -1498,7 +1498,7 @@ export class AgentOrchestrator {
         allowDangerouslySkipPermissions: !canUseTool,
         canUseTool,
         // claude_code preset 提供基础环境信息（platform/shell/OS/git/model/知识截止日期等）
-        // buildSystemPrompt 追加 Proma 特有指令（角色定义、SubAgent 策略、工作区信息等）
+        // buildSystemPrompt 追加 Legis 特有指令（角色定义、SubAgent 策略、工作区信息等）
         systemPrompt: {
           type: 'preset',
           preset: 'claude_code',
@@ -1857,7 +1857,7 @@ export class AgentOrchestrator {
                 }
               }
             } else if (msg.type === 'system') {
-              const sysMsg = msg as import('@proma/shared').SDKSystemMessage
+              const sysMsg = msg as import('@legis/shared').SDKSystemMessage
               if (sysMsg.subtype === 'compact_boundary' || sysMsg.subtype === 'permission_denied') {
                 accumulatedMessages.push(msg)
               }
@@ -2156,7 +2156,7 @@ export class AgentOrchestrator {
           // 此终止分支只会被「非 session-not-found」的错误命中（session 失效已在上文
           // isSessionNotFoundError 分支单独处理并切到恢复模式）。网络断连、服务端 5xx、
           // 未知错误都不代表 SDK 会话本身失效——其完整历史 JSONL 仍保存在
-          // ~/.proma/sdk-config/projects/.../{sdkSessionId}.jsonl 中，依旧可 resume。
+          // ~/.legis/sdk-config/projects/.../{sdkSessionId}.jsonl 中，依旧可 resume。
           // 此前这里对 `!apiError`（如普通断连解析不出状态码）一律清除指针，导致下一轮
           // 退化为「仅回填最近 N 条」的冷启动，上下文从满载骤降（#903）。
           if (existingSdkSessionId) {

@@ -23,7 +23,7 @@
  * - UA 格式：`Proma/<version> (+https://github.com/ErlichLiu/Proma)`
  */
 
-import type { ProviderType } from '@proma/shared'
+import type { ProviderType } from '@legis/shared'
 import type {
   ProviderAdapter,
   ProviderRequest,

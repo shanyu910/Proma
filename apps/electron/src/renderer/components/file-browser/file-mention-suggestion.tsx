@@ -12,7 +12,7 @@ import type { SuggestionOptions, SuggestionProps } from '@tiptap/suggestion'
 import { toast } from 'sonner'
 import { FileMentionList } from './FileMentionList'
 import type { FileMentionRef } from './FileMentionList'
-import type { FileIndexEntry, FileSearchResult } from '@proma/shared'
+import type { FileIndexEntry, FileSearchResult } from '@legis/shared'
 import { createMentionPopup, positionPopup, isSuggestionTriggerPresent } from '@/components/agent/mention-popup-utils'
 
 export function createFileMentionSuggestion(

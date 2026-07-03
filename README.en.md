@@ -107,7 +107,7 @@ Proma supports Doubao-powered streaming voice input, both inside Proma and acros
 
 > **Kimi Coding Plan users**: Proma is officially whitelisted by Kimi. Using Proma with your Kimi Coding Plan subscription will not trigger any third-party client ban policy.
 
-Agent mode is powered by Claude Agent SDK, so it currently requires an Anthropic or Anthropic-compatible channel. Chat mode uses Provider Adapters from `@proma/core` to support different protocols.
+Agent mode is powered by Claude Agent SDK, so it currently requires an Anthropic or Anthropic-compatible channel. Chat mode uses Provider Adapters from `@legis/core` to support different protocols.
 
 ## Local Data
 
@@ -153,10 +153,10 @@ Current package versions:
 
 | Package | Version | Responsibility |
 | --- | --- | --- |
-| `@proma/electron` | `0.9.12` | Electron desktop app |
-| `@proma/shared` | `0.1.17` | shared types, IPC constants, config, utilities |
-| `@proma/core` | `0.2.9` | Provider Adapters, SSE, Shiki highlighting |
-| `@proma/ui` | `0.1.3` | shared React UI components |
+| `@legis/electron` | `0.9.12` | Electron desktop app |
+| `@legis/shared` | `0.1.17` | shared types, IPC constants, config, utilities |
+| `@legis/core` | `0.2.9` | Provider Adapters, SSE, Shiki highlighting |
+| `@legis/ui` | `0.1.3` | shared React UI components |
 
 Common commands:
 

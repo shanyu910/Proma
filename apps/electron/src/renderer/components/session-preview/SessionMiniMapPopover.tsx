@@ -25,7 +25,7 @@ import type {
   SDKSystemMessage,
   SDKUserContentBlock,
   SDKUserMessage,
-} from '@proma/shared'
+} from '@legis/shared'
 
 export type SessionMiniMapType = 'chat' | 'agent'
 

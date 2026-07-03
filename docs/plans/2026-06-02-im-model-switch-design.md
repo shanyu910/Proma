@@ -76,7 +76,7 @@
 
 ### 收尾
 - `bun run typecheck` 通过
-- 递增 `@proma/electron` patch 版本
+- 递增 `@legis/electron` patch 版本
 - code-reviewer 审查
 
 ## 追加变更（2026-06-02 同批次）

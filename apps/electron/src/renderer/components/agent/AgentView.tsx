@@ -106,8 +106,8 @@ import { AgentSessionProvider } from '@/contexts/session-context'
 import { draftSessionIdsAtom } from '@/atoms/draft-session-atoms'
 import { sendWithCmdEnterAtom } from '@/atoms/shortcut-atoms'
 import { useOpenPreview } from '@/components/diff/preview-opener'
-import type { AgentSendInput, AgentPendingFile, FileDialogLargeFile, ModelOption, SDKMessage } from '@proma/shared'
-import { MAX_ATTACHMENT_SIZE } from '@proma/shared'
+import type { AgentSendInput, AgentPendingFile, FileDialogLargeFile, ModelOption, SDKMessage } from '@legis/shared'
+import { MAX_ATTACHMENT_SIZE } from '@legis/shared'
 import { fileToBase64, formatFileNames, getFileParentPath } from '@/lib/file-utils'
 import { createClipboardPendingFile, createClipboardTextDraft, makeUniqueAttachmentName } from '@/lib/clipboard-text-attachment'
 
@@ -148,7 +148,7 @@ function getUserTextFromSDKMessage(message: SDKMessage): string | null {
 // ===== 思考模式 Hover Popover =====
 
 interface AgentThinkingPopoverProps {
-  agentThinking: import('@proma/shared').ThinkingConfig | undefined
+  agentThinking: import('@legis/shared').ThinkingConfig | undefined
   onToggle: () => void
 }
 
@@ -1316,7 +1316,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
       // 1. 立即注入 liveMessages（作为普通用户消息显示）
       // 若纯引用无实质文本，用原始输入作为气泡内容（避免空气泡）
       const displayText = cleanedText || effectiveText
-      const syntheticMsg: import('@proma/shared').SDKMessage = {
+      const syntheticMsg: import('@legis/shared').SDKMessage = {
         type: 'user',
         uuid: localUuid,
         message: {
@@ -1324,7 +1324,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
         },
         parent_tool_use_id: null,
         _createdAt: Date.now(),
-      } as unknown as import('@proma/shared').SDKMessage
+      } as unknown as import('@legis/shared').SDKMessage
 
       store.set(liveMessagesMapAtom, (prev) => {
         const map = new Map(prev)
@@ -1635,7 +1635,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     const localUuid = crypto.randomUUID()
 
     // 1. 立即注入合成用户消息（/compact 气泡立刻可见，与普通发送路径一致）
-    const syntheticMsg: import('@proma/shared').SDKMessage = {
+    const syntheticMsg: import('@legis/shared').SDKMessage = {
       type: 'user',
       uuid: localUuid,
       message: {
@@ -1643,7 +1643,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
       },
       parent_tool_use_id: null,
       _createdAt: streamStartedAt,
-    } as unknown as import('@proma/shared').SDKMessage
+    } as unknown as import('@legis/shared').SDKMessage
 
     store.set(liveMessagesMapAtom, (prev) => {
       const map = new Map(prev)

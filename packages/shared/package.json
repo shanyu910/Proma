@@ -1,5 +1,5 @@
 {
-  "name": "@proma/shared",
+  "name": "@legis/shared",
   "version": "0.1.37",
   "license": "AGPL-3.0-only",
   "description": "Shared types, configs and utilities for proma",

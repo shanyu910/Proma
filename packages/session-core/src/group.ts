@@ -12,7 +12,7 @@ import type {
   SDKAssistantMessage,
   SDKUserMessage,
   SDKSystemMessage,
-} from '@proma/shared'
+} from '@legis/shared'
 import { normalizeThinkTagsInContentBlocks } from './thinking-tags'
 
 // ===== 辅助：从 SDKMessage 提取元数据 =====

@@ -1,7 +1,7 @@
 {
-  "name": "@proma/electron",
+  "name": "@legis/electron",
   "version": "0.14.2",
-  "description": "Proma next gen ai software with general agents - Electron App",
+  "description": "Legis next gen ai software with general agents - Electron App",
   "main": "dist/main.cjs",
   "author": {
     "name": "ErlichLiu",
@@ -58,10 +58,10 @@
     "@emoji-mart/data": "^1.2.1",
     "@emoji-mart/react": "^1.1.1",
     "@larksuiteoapi/node-sdk": "^1.65.0",
-    "@proma/core": "workspace:*",
-    "@proma/session-core": "workspace:*",
-    "@proma/shared": "workspace:*",
-    "@proma/ui": "workspace:*",
+    "@legis/core": "workspace:*",
+    "@legis/session-core": "workspace:*",
+    "@legis/shared": "workspace:*",
+    "@legis/ui": "workspace:*",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-context-menu": "^2.2.16",
@@ -159,5 +159,5 @@
   "build": {
     "extends": "electron-builder.yml"
   },
-  "proma": {}
+  "legis": {}
 }

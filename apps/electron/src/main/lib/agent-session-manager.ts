@@ -2,8 +2,8 @@
  * Agent 会话管理器
  *
  * 负责 Agent 会话的 CRUD 操作和消息持久化。
- * - 会话索引：~/.proma/agent-sessions.json（轻量元数据）
- * - 消息存储：~/.proma/agent-sessions/{id}.jsonl（JSONL 格式，逐行追加）
+ * - 会话索引：~/.legis/agent-sessions.json（轻量元数据）
+ * - 消息存储：~/.legis/agent-sessions/{id}.jsonl（JSONL 格式，逐行追加）
  *
  * 照搬 conversation-manager.ts 的模式。
  */
@@ -36,11 +36,11 @@ import type {
   AgentMessageSearchResult,
   AgentSessionReferenceSearchInput,
   AgentSessionReferenceSearchResult,
-} from '@proma/shared'
-import { migratePermissionMode } from '@proma/shared'
+} from '@legis/shared'
+import { migratePermissionMode } from '@legis/shared'
 import { getConversationMessages } from './conversation-manager'
-// 旧格式 → SDKMessage 的转换逻辑下沉到 @proma/session-core 作为唯一真源，避免主进程与渲染层各存一份。
-import { convertLegacyMessage } from '@proma/session-core'
+// 旧格式 → SDKMessage 的转换逻辑下沉到 @legis/session-core 作为唯一真源，避免主进程与渲染层各存一份。
+import { convertLegacyMessage } from '@legis/session-core'
 import { clearNanoBananaAgentHistory } from './chat-tools/nano-banana-mcp'
 import { assertEnabledModelForChannel } from './agent-model-selection'
 import { copyForkWorkspaceFiles } from './agent-fork-workspace-copy'
@@ -386,7 +386,7 @@ export function getAgentSessionSDKMessages(id: string): SDKMessage[] {
 }
 
 /**
- * convertLegacyMessage 已迁移至 @proma/session-core（本文件从该包 import 使用）。
+ * convertLegacyMessage 已迁移至 @legis/session-core（本文件从该包 import 使用）。
  */
 
 /**
@@ -1060,7 +1060,7 @@ export function truncateSDKMessages(id: string, upToUuidInclusive: string): SDKM
 /**
  * 从 SDK session JSONL 中查找指定 assistant message 之后最近的 user message UUID
  *
- * SDK session JSONL（~/.proma/sdk-config/projects/...）中的消息都带有 uuid，
+ * SDK session JSONL（~/.legis/sdk-config/projects/...）中的消息都带有 uuid，
  * 但 Proma 自己构造的 user message 没有 uuid。此函数直接读取 SDK 的 JSONL
  * 来解析 rewindFiles 所需的 user message UUID。
  *

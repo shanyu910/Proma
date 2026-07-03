@@ -8,7 +8,7 @@ type AgentSessionManager = typeof import('./agent-session-manager')
 let manager: AgentSessionManager
 let tempHome: string
 const originalHome = process.env.HOME
-const originalPromaDev = process.env.PROMA_DEV
+const originalLegisDev = process.env.LEGIS_DEV
 const originalClaudeConfigDir = process.env.CLAUDE_CONFIG_DIR
 
 mock.module('electron', () => ({
@@ -42,13 +42,13 @@ function jsonl(rows: string[]): string {
 }
 
 function writeAgentSessionJsonl(sessionId: string, rows: string[]): void {
-  const dir = join(tempHome, '.proma', 'agent-sessions')
+  const dir = join(tempHome, '.legis', 'agent-sessions')
   mkdirSync(dir, { recursive: true })
   writeFileSync(join(dir, `${sessionId}.jsonl`), jsonl(rows), 'utf-8')
 }
 
 function writeSdkSessionJsonl(sdkSessionId: string, rows: string[]): void {
-  const dir = join(tempHome, '.proma', 'sdk-config', 'projects', 'test-project')
+  const dir = join(tempHome, '.legis', 'sdk-config', 'projects', 'test-project')
   mkdirSync(dir, { recursive: true })
   writeFileSync(join(dir, `${sdkSessionId}.jsonl`), jsonl(rows), 'utf-8')
 }
@@ -56,7 +56,7 @@ function writeSdkSessionJsonl(sdkSessionId: string, rows: string[]): void {
 beforeAll(async () => {
   tempHome = mkdtempSync(join(os.tmpdir(), 'proma-agent-session-manager-'))
   process.env.HOME = tempHome
-  process.env.PROMA_DEV = '0'
+  process.env.LEGIS_DEV = '0'
   delete process.env.CLAUDE_CONFIG_DIR
   manager = await import('./agent-session-manager')
 })
@@ -67,10 +67,10 @@ afterAll(() => {
   } else {
     process.env.HOME = originalHome
   }
-  if (originalPromaDev === undefined) {
-    delete process.env.PROMA_DEV
+  if (originalLegisDev === undefined) {
+    delete process.env.LEGIS_DEV
   } else {
-    process.env.PROMA_DEV = originalPromaDev
+    process.env.LEGIS_DEV = originalLegisDev
   }
   if (originalClaudeConfigDir === undefined) {
     delete process.env.CLAUDE_CONFIG_DIR

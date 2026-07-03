@@ -9,7 +9,7 @@ license: AGPL-3.0-only
 
 把 `~/.proma/agent-sessions/<id>.jsonl` 里被流式快照污染过的会话，清洗为干净 Markdown 对话。
 
-本技能是 `proma` CLI 的**薄封装**：所有解析 / 快照去重 / 渲染逻辑都在 `@proma/session-core`（仓库内唯一真源），由 `proma session` 命令暴露。技能本身不解析 JSONL，只负责教你按正确的顺序调用 CLI。
+本技能是 `proma` CLI 的**薄封装**：所有解析 / 快照去重 / 渲染逻辑都在 `@legis/session-core`（仓库内唯一真源），由 `proma session` 命令暴露。技能本身不解析 JSONL，只负责教你按正确的顺序调用 CLI。
 
 > 历史：v1 曾自带一份 Python parser（独立重抄会话格式，会随内部格式漂移）。v2 起改为调用仓库内的 `proma` CLI，格式知识只存一处。
 
@@ -98,5 +98,5 @@ proma session export <id> --out cleaned/<id>.clean.md
 
 ## 实现要点（供维护者）
 
-- 解析 / 快照去重 / 渲染全部在 `@proma/session-core`，CLI 只是命令路由。修 bug 或改格式去改 core，不要在本技能里加解析逻辑。
+- 解析 / 快照去重 / 渲染全部在 `@legis/session-core`，CLI 只是命令路由。修 bug 或改格式去改 core，不要在本技能里加解析逻辑。
 - 格式细节（流式快照碎片化、message.id 合并、旧扁平格式归一）见 `references/cli-usage.md` 与 core 包源码。
