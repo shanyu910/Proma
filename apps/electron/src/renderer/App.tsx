@@ -101,24 +101,17 @@ export default function App(): React.ReactElement {
   const isLoggedIn = useAuthGate()
   const [isChecking] = useAtom(isCheckingAtom)
 
-  // 正在验证 token → 空白占位（瞬间闪过，避免闪出登录页）
-  if (isChecking) {
-    return <div className="h-screen w-screen bg-background" />
-  }
-
-  // 未登录 → 显示登录页
-  if (!isLoggedIn) {
-    return (
-      <TooltipProvider delayDuration={200}>
-        <LoginScreen />
-      </TooltipProvider>
-    )
-  }
-
-  // 初始化：检查是否需要显示 Onboarding
+  // 初始化：检查是否需要显示 Onboarding（仅在已登录时执行）
+  // 注意：useEffect 必须在所有条件 return 之前调用，否则违反 Hooks 规则。
   // macOS/Linux 上 SDK 自带 claude native binary 不依赖宿主 Node/Git；
   // Windows 上仍需 Git Bash/WSL，由 Onboarding Step 2 与聊天错误卡片引导用户安装。
   React.useEffect(() => {
+    // 未登录或正在验证时，跳过 onboarding 初始化
+    if (!isLoggedIn) {
+      setIsLoading(false)
+      return
+    }
+
     const initialize = async () => {
       try {
         const settings = await window.electronAPI.getSettings()
@@ -133,7 +126,21 @@ export default function App(): React.ReactElement {
     }
 
     initialize()
-  }, [])
+  }, [isLoggedIn])
+
+  // 正在验证 token → 空白占位（瞬间闪过，避免闪出登录页）
+  if (isChecking) {
+    return <div className="h-screen w-screen bg-background" />
+  }
+
+  // 未登录 → 显示登录页
+  if (!isLoggedIn) {
+    return (
+      <TooltipProvider delayDuration={200}>
+        <LoginScreen />
+      </TooltipProvider>
+    )
+  }
 
   // 完成 onboarding 回调：创建欢迎对话，可选打开教程 Tab
   const handleOnboardingComplete = async (openTutorial?: boolean) => {
