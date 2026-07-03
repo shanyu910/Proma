@@ -512,6 +512,51 @@
     --dashed-border: 100 30% 48% / 0.25;
     --dashed-border-hover: 100 30% 48% / 0.40;
   }
+
+  /* ===== 法务风格 (legal-dark) — 海军蓝 + 暖金，庄重直角 =====
+   * 色相基调：深海军蓝（H225）底色，传递专业、权威、可靠感；
+   * 强调色用暖金（H38），呼应黄铜印章、铜质铭牌的法务意象；
+   * 全局直角几何（--radius: 0px），区别于其他主题的圆润感。
+   */
+  .theme-legal-dark {
+    --background: 225 25% 9%;              /* 侧边栏：深海军蓝黑 */
+    --foreground: 38 25% 92%;              /* 暖羊皮白文字 */
+    --content-area: 225 25% 7%;            /* 内容区：最深，专注 */
+    --sidebar-surface: 225 25% 9%;
+    --tabbar-surface: 225 25% 9%;
+    --tab-indicator: 225 50% 55%;
+    --sidebar-control-surface: 225 22% 15%;
+    --sidebar-control-surface-hover: 225 22% 19%;
+    --sidebar-control-stroke: 38 30% 65% / 0.10;
+    --input-surface: 225 25% 9%;
+    --muted: 225 20% 14%;                  /* 次要背景 */
+    --muted-foreground: 38 15% 58%;        /* 暖灰次要文字 */
+    --border: 225 20% 20%;                 /* 与背景拉开亮度差 */
+    --primary: 225 50% 55%;                /* 亮海军蓝主色 */
+    --primary-foreground: 0 0% 100%;       /* 白字配海军蓝 */
+    --secondary: 225 20% 14%;
+    --secondary-foreground: 38 25% 92%;
+    --accent: 38 30% 18%;                  /* 暖琥珀暗强调 */
+    --accent-foreground: 38 50% 62%;       /* 暖金高亮（黄铜印章感） */
+    --ring: 225 45% 50%;                   /* 聚焦环：海军蓝 */
+    --card: 225 22% 12%;                   /* 卡片浮起 */
+    --card-foreground: 38 25% 92%;
+    --input: 225 20% 14%;
+    --popover: 225 22% 13%;
+    --popover-foreground: 38 25% 92%;
+    --dialog: 225 22% 16%;                 /* 弹窗最高 */
+    --dialog-foreground: 38 25% 92%;
+    --destructive: 0 55% 45%;              /* 砖红危险色 */
+    --destructive-foreground: 38 25% 92%;
+    --stop-hover-bg: hsl(0, 35%, 18%);
+    --tooltip: 225 20% 18%;
+    --tooltip-foreground: 0 0% 98%;
+    --tooltip-muted: 38 20% 65%;
+    --code-bg: 225 30% 6%;                 /* 深海蓝底代码块 */
+    --radius: 0px;                         /* 全局直角 — 法务风格几何特征 */
+    --dashed-border: 225 50% 55% / 0.30;
+    --dashed-border-hover: 225 50% 55% / 0.50;
+  }
 }
 
 @layer base {

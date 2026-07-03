@@ -163,6 +163,7 @@ export const THEME_STYLES = [
   'slate-light',
   'slate-dark',
   'terminal-dark',
+  'legal-dark',
 ] as const
 
 /** 特殊风格主题 */

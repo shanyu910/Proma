@@ -58,6 +58,7 @@ import themeOceanDark from '@/assets/theme-previews/theme-ocean-dark.webp'
 import themeForestNight from '@/assets/theme-previews/theme-forest-night.webp'
 import themeMorandiNight from '@/assets/theme-previews/theme-morandi-night.webp'
 import themeTerminalDark from '@/assets/theme-previews/theme-terminal-dark.png'
+import themeLegalDark from '@/assets/theme-previews/theme-legal-dark.webp'
 
 /** 主题选项 */
 const THEME_OPTIONS = [
@@ -151,6 +152,13 @@ const SPECIAL_STYLES: readonly SpecialStyle[] = [
     variant: 'dark',
     image: themeTerminalDark,
     tooltip: '该主题包含轻微闪烁动画',
+  },
+  {
+    id: 'legal-dark',
+    name: '法务风格',
+    variant: 'dark',
+    image: themeLegalDark,
+    tooltip: '海军蓝 + 暖金，直角几何',
   },
 ]
 
@@ -258,7 +266,7 @@ export function AppearanceSettings(): React.ReactElement {
           {/* 特殊风格 - 标签在上，卡片在下 */}
           <div className="px-4 py-3 space-y-2">
             <div className="text-sm font-medium text-foreground">特殊风格</div>
-            <div className="grid grid-cols-7 gap-3">
+            <div className="grid grid-cols-4 gap-3">
               {SPECIAL_STYLES.map((style) => (
                 <StyleCard
                   key={style.id}
@@ -341,7 +349,7 @@ function AppIconPicker(): React.ReactElement {
     >
       <SettingsCard divided={false}>
         <div className="px-4 py-3">
-          <div className="grid grid-cols-7 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             {ICON_VARIANTS.map((variant) => (
               <IconCard
                 key={variant.id}
