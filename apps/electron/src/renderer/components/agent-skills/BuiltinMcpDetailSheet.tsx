@@ -1,5 +1,5 @@
 /**
- * BuiltinMcpDetailSheet — Proma 内置 MCP 托管详情
+ * BuiltinMcpDetailSheet — Legis 内置 MCP 托管详情
  */
 
 import * as React from 'react'
@@ -46,13 +46,13 @@ function getConfigInfo(server: BuiltinMcpServerSummary): BuiltinMcpConfigInfo {
   }
   if (server.id === 'automation') {
     return {
-      source: 'Proma 本地自动任务',
-      description: '自动任务 MCP 直接使用 Proma 本地任务服务，无需填写额外凭据。',
+      source: 'Legis 本地自动任务',
+      description: '自动任务 MCP 直接使用 Legis 本地任务服务，无需填写额外凭据。',
     }
   }
   return {
-    source: 'Proma 运行时',
-    description: '该内置 MCP 由 Proma 运行时托管。',
+    source: 'Legis 运行时',
+    description: '该内置 MCP 由 Legis 运行时托管。',
   }
 }
 
@@ -68,7 +68,7 @@ export function BuiltinMcpDetailSheet({ open, server, onOpenChange, onConfigure 
               <div className="flex items-center gap-2">
                 <SheetTitle>{server.displayName}</SheetTitle>
                 <span className="rounded-md bg-blue-500/10 px-1.5 py-0.5 text-[11px] font-medium text-blue-600 dark:text-blue-400">
-                  Proma 内置
+                  Legis 内置
                 </span>
               </div>
               <SheetDescription>{server.description}</SheetDescription>

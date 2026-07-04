@@ -260,7 +260,7 @@ export function VoiceInputSettings(): React.ReactElement {
             description="每行或逗号分隔一个词，会在本次识别请求中直传给豆包，用于改善产品名、技术词和人名识别。"
             value={settings.customHotwords}
             onChange={(customHotwords) => update({ customHotwords })}
-            placeholder={"Proma\nJotai\nShadcnUI\nClaude Code"}
+            placeholder={"Legis\nJotai\nShadcnUI\nClaude Code"}
             minHeight={112}
           />
           <SettingsSelect

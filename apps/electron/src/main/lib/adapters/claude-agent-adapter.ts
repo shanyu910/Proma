@@ -121,7 +121,7 @@ export interface ClaudeAgentQueryOptions extends AgentQueryInput {
   env: Record<string, string | undefined>
   /** 最大轮次（undefined = SDK 默认） */
   maxTurns?: number
-  /** SDK 权限模式（Proma 当前三种模式直接映射 SDK 原生模式） */
+  /** SDK 权限模式（Legis 当前三种模式直接映射 SDK 原生模式） */
   sdkPermissionMode: PromaPermissionMode
   /** 是否跳过权限检查 */
   allowDangerouslySkipPermissions: boolean
@@ -141,7 +141,7 @@ export interface ClaudeAgentQueryOptions extends AgentQueryInput {
   resumeSessionAt?: string
   /** MCP 服务器配置 */
   mcpServers?: Record<string, unknown>
-  /** 仅使用 Proma 显式传入的 MCP 配置，避免 SDK 从其它来源发现额外 MCP */
+  /** 仅使用 Legis 显式传入的 MCP 配置，避免 SDK 从其它来源发现额外 MCP */
   strictMcpConfig?: boolean
   /** 插件配置 */
   plugins?: Array<{ type: 'local'; path: string; skipMcpDiscovery?: boolean }>
@@ -192,7 +192,7 @@ export interface ClaudeAgentQueryOptions extends AgentQueryInput {
 const FRIENDLY_ERROR_MESSAGES: Array<{ pattern: RegExp; message: string }> = [
   {
     pattern: /not logged in|please run \/login/i,
-    message: '请检查是否选择了正确的 Proma 供应渠道和模型',
+    message: '请检查是否选择了正确的 Legis 供应渠道和模型',
   },
   {
     pattern: /validation error/i,
@@ -473,7 +473,7 @@ export function mapSDKErrorToTypedError(
 
   // “未选择正确渠道/模型”场景：友好化后的文案已固定，无法登录多半是渠道或模型配置有误，
   // 引导用户直接重新选择模型，而非跳转设置页面
-  const isInvalidChannelOrModel = /请检查是否选择了正确的 Proma 供应渠道和模型/.test(mapped.message)
+  const isInvalidChannelOrModel = /请检查是否选择了正确的 Legis 供应渠道和模型/.test(mapped.message)
 
   return {
     code: mapped.code,

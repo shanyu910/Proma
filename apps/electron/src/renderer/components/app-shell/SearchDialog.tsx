@@ -360,7 +360,7 @@ export function SearchDialog(): React.ReactElement {
     const channelId = deepseekChannel?.id ?? currentAgentChannelId ?? undefined
 
     const configDir = import.meta.env.DEV ? '.legis-dev' : '.proma'
-    const prompt = `请帮我在 Proma 的全部会话历史中搜索与以下描述相关的内容：
+    const prompt = `请帮我在 Legis 的全部会话历史中搜索与以下描述相关的内容：
 
 "${q}"
 

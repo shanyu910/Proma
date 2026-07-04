@@ -470,7 +470,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
 
   // 检查 Agent 渠道列表中是否存在可用的模型（渠道 enabled + 模型 enabled）
   const hasAvailableModel = React.useMemo(() => {
-    // Proma 官方渠道（商业版）：只要 enabled 且有可用模型，直接视为可用
+    // Legis 官方渠道（商业版）：只要 enabled 且有可用模型，直接视为可用
     const promaOfficial = globalChannels.find((c) => c.id === 'proma-official')
     if (promaOfficial?.enabled && promaOfficial.models.some((m) => m.enabled)) return true
     // 其他渠道：需在 agentChannelIds 白名单中
@@ -1285,7 +1285,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
         return
       }
 
-      // 流式注入路径：提取 Proma 引用语法并结构化传递，剥离引用文本后其余原样透传 SDK
+      // 流式注入路径：提取 Legis 引用语法并结构化传递，剥离引用文本后其余原样透传 SDK
       // queueMessage 已支持 mentionedSkills/Mcp/SessionIds，引用可完整传递。
       const REF_PATTERN = /\/skill:(?<skill>\S+)|#mcp:(?<mcp>\S+)|&session:(?<session>\S+)/g
       const mentionedSkills: string[] = []

@@ -385,7 +385,7 @@ function AgentProviderRow({ channel, enabled, onToggle }: AgentProviderRowProps)
   )
 }
 
-// ===== Proma 官方供应商推广卡片 =====
+// ===== Legis 官方供应商推广卡片 =====
 
 function PromaProviderCard(): React.ReactElement {
   const handleDownload = (): void => {
@@ -394,9 +394,9 @@ function PromaProviderCard(): React.ReactElement {
 
   return (
     <SettingsRow
-      label="Proma"
-      icon={<img src={PromaLogo} alt="Proma" className="w-8 h-8 rounded" />}
-      description="Proma 官方供应｜稳定｜靠谱｜丝滑｜简单｜可用于 Agent"
+      label="Legis"
+      icon={<img src={PromaLogo} alt="Legis" className="w-8 h-8 rounded" />}
+      description="Legis 官方供应｜稳定｜靠谱｜丝滑｜简单｜可用于 Agent"
     >
       <Button size="sm" variant="outline" className="gap-1.5" onClick={handleDownload}>
         <ExternalLink size={13} />
