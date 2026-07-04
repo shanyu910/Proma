@@ -1,16 +1,16 @@
 # session-cleaner CLI 参考
 
-本技能是 `proma` CLI 的薄封装。本文件给维护者解释**底层格式**与**CLI 行为**，便于排查问题。
+本技能是 `legis` CLI 的薄封装。本文件给维护者解释**底层格式**与**CLI 行为**，便于排查问题。
 真正的解析逻辑在 `@legis/session-core`（仓库内唯一真源），不要在技能里重抄。
 
 ## 会话存储
 
 ```
-~/.proma/agent-sessions.json        会话索引（{ version, sessions: AgentSessionMeta[] }）
-~/.proma/agent-sessions/<id>.jsonl   单会话消息，JSONL（一行一条 JSON）
+~/.legis/agent-sessions.json        会话索引（{ version, sessions: AgentSessionMeta[] }）
+~/.legis/agent-sessions/<id>.jsonl   单会话消息，JSONL（一行一条 JSON）
 ```
 
-开发模式（`PROMA_DEV=1` 或 Proma 未打包）数据在 `~/.proma-dev/`。CLI 用 `--dev` 或 `--config-dir` 切换。
+开发模式（`LEGIS_DEV=1` 或 Legis 未打包）数据在 `~/.legis-dev/`。CLI 用 `--dev` 或 `--config-dir` 切换。
 
 ## 两种会话格式（CLI 自动识别，无需关心）
 
@@ -57,7 +57,7 @@
 ```
 @legis/session-core   解析 / 快照去重 / outline / search / select / render —— 真源
   └─ /node 子入口      readSessionMessages（文件 IO，含 node:fs）
-apps/cli (proma)      命令路由薄壳，调用 core
+apps/cli (legis)      命令路由薄壳，调用 core
 default-skills/session-cleaner  本技能，教 Agent 调 CLI
 ```
 
