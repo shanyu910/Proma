@@ -1,0 +1,44 @@
+/**
+ * Legis 认证与模型集成模块 — 对外统一出口
+ *
+ * 原项目代码只 import 这里的东西。
+ */
+
+// 认证关卡 + 登录弹窗
+export { AuthInitializer } from './auth/AuthInitializer'
+export { LoginModal } from './auth/LoginModal'
+export { useRequireAuth } from './auth/useRequireAuth'
+
+// 认证状态 atoms（供设置页/账号卡片使用）
+export {
+  authStatusAtom,
+  authUserAtom,
+  clearStoredToken,
+} from './auth/auth-state'
+export { changePassword } from './auth/auth-api'
+
+// 模型配置 + 余额（供设置页使用）
+export {
+  modelConfigAtom,
+  recommendedModelIdAtom,
+  getSK,
+  clearSK,
+  refreshSK,
+  fetchModelConfigData,
+} from './model/model-config'
+export { modelUsageAtom, fetchModelUsage } from './model/model-usage'
+
+// 渠道同步
+export { OFFICIAL_CHANNEL_ID, resolveApiKey } from './model/channel-sync'
+
+// 用户配置
+export { legisConfigAtom, loadLegisConfig, updateSelectedModels, updateDefaultModel } from './config/legis-config'
+
+// 类型（供外部使用）
+export type {
+  AuthStatus,
+  LegisUser,
+  ModelConfig,
+  ModelItem,
+  ModelUsage,
+} from './types'
