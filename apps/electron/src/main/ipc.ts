@@ -151,6 +151,11 @@ import { extractTextFromAttachment } from './lib/document-parser'
 import { getTutorialContent, createWelcomeConversation } from './lib/tutorial-service'
 import { getUserProfile, updateUserProfile } from './lib/user-profile-service'
 import { getSettings, updateSettings } from './lib/settings-service'
+import {
+  handleSecureTokenGet,
+  handleSecureTokenSet,
+  handleSecureTokenClear,
+} from '../legis/secure/auth-secure-storage'
 import { setBuiltinMcpUserEnabled } from './lib/builtin-mcp/settings'
 import { setDockBadgeCount } from './lib/dock-badge-service'
 
@@ -4350,4 +4355,9 @@ export function registerIpcHandlers(): void {
       await runAutomationNow(id)
     }
   )
+
+  // ===== Legis 认证安全存储（Token 加密持久化到 Keychain） =====
+  ipcMain.handle('auth-secure:get-token', handleSecureTokenGet)
+  ipcMain.handle('auth-secure:set-token', (_event, token: string) => handleSecureTokenSet(_event, token))
+  ipcMain.handle('auth-secure:clear-token', handleSecureTokenClear)
 }

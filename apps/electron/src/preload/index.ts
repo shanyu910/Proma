@@ -1037,6 +1037,13 @@ export interface ElectronAPI {
   runAutomationNow: (id: string) => Promise<void>
   /** 订阅任务列表变更事件 */
   onAutomationChanged: (callback: () => void) => () => void
+
+  // ===== Legis 认证安全存储（Keychain 加密） =====
+  authSecure: {
+    getToken: () => Promise<string | null>
+    setToken: (token: string) => Promise<void>
+    clearToken: () => Promise<void>
+  }
 }
 
 interface MigrationExportResult {
@@ -2372,6 +2379,13 @@ const electronAPI: ElectronAPI = {
     const listener = (): void => callback()
     ipcRenderer.on(AUTOMATION_IPC_CHANNELS.CHANGED, listener)
     return () => { ipcRenderer.removeListener(AUTOMATION_IPC_CHANNELS.CHANGED, listener) }
+  },
+
+  // ===== Legis 认证安全存储（Keychain 加密） =====
+  authSecure: {
+    getToken: () => ipcRenderer.invoke('auth-secure:get-token'),
+    setToken: (token: string) => ipcRenderer.invoke('auth-secure:set-token', token),
+    clearToken: () => ipcRenderer.invoke('auth-secure:clear-token'),
   },
 }
 
