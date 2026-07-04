@@ -15,6 +15,7 @@
 import * as React from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { CornerDownLeft, Square, Brain, Paperclip } from 'lucide-react'
+import { useRequireAuth } from '../../../legis'
 import { ModelSelector } from './ModelSelector'
 import { ClearContextButton } from './ClearContextButton'
 import { ContextSettingsPopover } from './ContextSettingsPopover'
@@ -69,6 +70,7 @@ interface ChatInputProps {
 }
 
 export function ChatInput({ conversationId, streaming, pendingAttachments, onSetPendingAttachments, onSend, onStop, onClearContext }: ChatInputProps): React.ReactElement {
+  const requireAuth = useRequireAuth()
   const sendWithCmdEnter = useAtomValue(sendWithCmdEnterAtom)
   // 从 Map atom 读写草稿
   const draftsMap = useAtomValue(conversationDraftsAtom)
@@ -240,13 +242,15 @@ export function ChatInput({ conversationId, streaming, pendingAttachments, onSet
     )
   }, [setPendingAttachments])
 
-  /** 发送消息 */
+  /** 发送消息（未登录时弹出登录窗） */
   const handleSend = React.useCallback((): void => {
     if (!canSend) return
-    onSend(content.trim())
-    setContent('')
-    // 附件清理由 ChatView 的 handleSend 负责
-  }, [canSend, content, onSend])
+    requireAuth('发送消息', () => {
+      onSend(content.trim())
+      setContent('')
+      // 附件清理由 ChatView 的 handleSend 负责
+    })
+  }, [canSend, content, onSend, requireAuth])
 
   /** 粘贴文件回调 */
   const handlePasteFiles = React.useCallback((files: File[]): void => {

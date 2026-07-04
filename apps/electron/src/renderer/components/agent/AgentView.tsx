@@ -28,6 +28,7 @@ import { ExitPlanModeBanner } from './ExitPlanModeBanner'
 import { PlanModeDashedBorder } from './PlanModeDashedBorder'
 import { ModelSelector } from '@/components/chat/ModelSelector'
 import { AttachmentPreviewItem } from '@/components/chat/AttachmentPreviewItem'
+import { useRequireAuth, authStatusAtom } from '../../../legis'
 import { QuotedSelectionChip } from '@/components/diff/QuotedSelectionChip'
 import { RichTextInput } from '@/components/ai-elements/rich-text-input'
 import { SpeechButton } from '@/components/ai-elements/speech-button'
@@ -295,6 +296,8 @@ function DisplayOptionsPopover({
 }
 
 export function AgentView({ sessionId }: { sessionId: string }): React.ReactElement {
+  const requireAuth = useRequireAuth()
+  const authStatus = useAtomValue(authStatusAtom)
   const [persistedSDKMessages, setPersistedSDKMessages] = React.useState<SDKMessage[]>([])
   const persistedSDKMessagesRef = React.useRef<SDKMessage[]>([])
   persistedSDKMessagesRef.current = persistedSDKMessages
@@ -1260,13 +1263,20 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
   if (computedSelectedModel) stableSelectedModelRef.current = computedSelectedModel
   const externalSelectedModel = computedSelectedModel ?? stableSelectedModelRef.current
 
-  /** 发送消息 */
+  /** 发送消息（未登录时弹出登录窗） */
   const handleSend = React.useCallback(async (overrideText?: string): Promise<void> => {
     const text = (overrideText ?? inputContent).trim()
     // 如果输入为空但有建议，使用建议内容
     const effectiveText = text || suggestion || ''
     const pendingFilesSnapshot = pendingFilesRef.current
     if (!messagesLoaded || (!effectiveText && pendingFilesSnapshot.length === 0) || !agentChannelId || !hasAvailableModel) return
+
+    // Legis 认证守卫：未登录时弹窗，不执行发送
+    if (authStatus !== 'authenticated') {
+      requireAuth('创建 Agent 会话', () => { void handleSend(overrideText) })
+      return
+    }
+
     const additionalDirectoriesForRun = new Set(attachedDirs)
     for (const dir of attachedFileDirectories) {
       additionalDirectoriesForRun.add(dir)
