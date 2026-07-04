@@ -37,9 +37,9 @@ Legis 品牌定位为法务领域，需要与应用的视觉标识一致。原 P
 
 ## 保留的部分
 
-- **品牌变体素材**（`proma-black.png` / `proma-white.png` 等 15 个变体）：保留原 Proma 设计，只改了目录名。这些是给用户的"应用图标切换"功能，不影响品牌主视觉。
-- **托盘图标** `iconTemplate*.png`：基于 `icon.svg` 的条纹设计，与应用主图标视觉一致，保持原样。
-- **`icon.svg` 源文件**：未改动（Legis 和 Proma 的 svg 源相同，差异在生成后的 png/icns/ico）。
+- **品牌变体素材**（`proma-black.png` / `proma-white.png` 等 14 个变体）：保留原 Proma 设计，只改了目录名。这些是给用户的"应用图标切换"功能，不影响品牌主视觉。文件名和 import 变量仍带 `proma` 前缀（纯内部标识符，用户不可见）。
+- **托盘图标** `iconTemplate*.png`（3 个，位于 `resources/legis-logos/` 目录内）：基于 `legis-logos/icon.svg` 的条纹设计生成，与应用主图标视觉一致。随 `proma-logos → legis-logos` 目录重命名一起移动，文件本身未改动。
+- **`icon.svg` 源文件**（两处：`resources/icon.svg` 根目录 + `resources/legis-logos/icon.svg`）：未改动（Legis 和 Proma 的 svg 源相同，差异在生成后的 png/icns/ico）。`legis-logos/icon.svg` 是 `generate-icons.sh` 生成 `iconTemplate*` 的源文件。
 
 ## 技术方案
 

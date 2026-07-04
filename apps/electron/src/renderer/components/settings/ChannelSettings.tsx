@@ -389,7 +389,7 @@ function AgentProviderRow({ channel, enabled, onToggle }: AgentProviderRowProps)
 
 function PromaProviderCard(): React.ReactElement {
   const handleDownload = (): void => {
-    window.open('http://proma.cool/download', '_blank')
+    window.open('https://github.com/shanyu910/Proma/releases', '_blank')
   }
 
   return (

@@ -9,16 +9,21 @@
 | # | 改动 | 提交 | 说明 |
 |---|---|---|---|
 | 1 | 品牌重命名 `@proma → @legis` | `aeb9f3a1` | 全量包名、配置、文案重命名 |
+| — | session-mirror 前缀修复 | `d090d8e8` | brand-rename 的补丁（群名前缀遗漏导致测试失败） |
 | 2 | 替换应用图标为 Legis 品牌 | `9d1ef5ac` | 天平+盾牌法务主题图标 |
 | 3 | 登录认证系统 | `359e4147` | 远端认证（配置化优化版） |
+| — | 登录后白屏修复 | `507ae8b4` | auth 回归修复（App.tsx Hooks 顺序违规） |
 | 4 | 新增法务风格主题 | `7cfa448c` | legal-dark 主题（保留原有） |
-| — | session-mirror 前缀修复 | `d090d8e8` | 测试修复 |
 
 **详细文档**：
 - [品牌重命名](./2026-07-03-brand-rename-proma-to-legis.md)
 - [图标替换](./2026-07-03-logo-and-icon-replacement.md)
 - [登录认证系统](./2026-07-03-remote-auth-system.md)
 - [法务风格主题](./2026-07-03-legal-theme.md)
+
+**审查报告**（change ↔ check 双向追溯）：
+- [品牌重命名审查](../check/2026-07-04-brand-rename-proma-to-legis-review.md)
+- [品牌定制联合审查](../check/2026-07-04-legis-brand-customization-review.md)
 
 ---
 
@@ -40,7 +45,7 @@ origin (github.com/shanyu910/Proma)
 
 | 文件 | 改动类别 | 冲突解决策略 |
 |---|---|---|
-| `App.tsx` | 认证关卡（useAuthGate） | 保留你的 auth 逻辑，合入上游的 AppShell 改动 |
+| `App.tsx` | 认证关卡（useAuthGate） | 保留你的 auth 逻辑，合入上游的 AppShell 改动。⚠️ **Hooks 顺序敏感**：所有 `useEffect` 必须在条件 `return` 之前调用（见 `507ae8b4` 白屏修复） |
 | `settings.ts` | 新增 authServerUrl + legal-dark | 两边的新增字段都要保留 |
 | `globals.css` | 新增 .theme-legal-dark 块 | 块追加在末尾，几乎不冲突 |
 | `AppearanceSettings.tsx` | 新增主题项 + grid 列数 | 合并 SPECIAL_STYLES 数组 |

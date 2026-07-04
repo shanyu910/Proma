@@ -10,13 +10,13 @@ Legis 需要用户登录后才能使用，对接自建的 Legis-Server 认证服
 
 ## 改动范围
 
-### 新增文件（5 个，自包含）
+### 新增文件（3 个，自包含）
 
 | 文件 | 行数 | 说明 |
 |---|---|---|
-| `renderer/atoms/auth.ts` | ~190 | 认证状态 atoms + API 调用（login/checkSession/logout） |
-| `renderer/atoms/auth.test.ts` | ~35 | 退出登录状态重置的单元测试 |
-| `renderer/components/auth/LoginScreen.tsx` | ~180 | 登录界面（邮箱+密码，支持显示/隐藏密码） |
+| `renderer/atoms/auth.ts` | 155 | 认证状态 atoms + API 调用（login/checkSession/logout） |
+| `renderer/atoms/auth.test.ts` | 35 | 退出登录状态重置的单元测试 |
+| `renderer/components/auth/LoginScreen.tsx` | 161 | 登录界面（邮箱+密码，支持显示/隐藏密码） |
 
 ### 修改的文件
 
@@ -66,10 +66,39 @@ useAuthGate() hook 执行
 const isLoggedIn = useAuthGate()
 const [isChecking] = useAtom(isCheckingAtom)
 
+// ⚠️ 所有 React.useEffect 必须在这两个条件 return 之前调用（Hooks 规则）
+React.useEffect(() => {
+  if (!isLoggedIn) { setIsLoading(false); return }
+  // ... onboarding 初始化
+}, [isLoggedIn])
+
 if (isChecking) return <div className="h-screen w-screen bg-background" />
 if (!isLoggedIn) return <TooltipProvider><LoginScreen /></TooltipProvider>
 // 已登录 → 继续 onboarding / 主界面流程
 ```
+
+### ⚠️ Hooks 顺序警示（重要陷阱）
+
+> **commit `507ae8b4` 修复的回归**：初版把条件 `return` 放在了 `React.useEffect` **之前**，导致 Hooks 调用顺序在 `isChecking=true/false` 两次渲染间不一致，React 崩溃 → **登录后白屏**。
+
+**在此处改动时必须遵守**：
+1. 所有 `useEffect` / `useState` / 自定义 hook 调用必须在**所有条件 `return` 之前**
+2. 认证关卡（`if (isChecking)` / `if (!isLoggedIn)`）只能用提前返回做渲染分流，不能用条件包裹 hook
+3. 用 `useEffect` 的依赖项（`[isLoggedIn]`）+ 内部守卫（`if (!isLoggedIn) return`）控制何时执行 onboarding 逻辑
+
+## 配置说明
+
+### 修改认证服务器地址
+
+编辑 `~/.legis/settings.json`（正式版）或 `~/.legis-dev/settings.json`（开发版）：
+
+```json
+{
+  "authServerUrl": "https://your-auth-server.com"
+}
+```
+
+### Legis-Server API 契约
 
 ## 配置说明
 
@@ -119,3 +148,9 @@ bun run dev                                                 # 启动应显示登
 ```bash
 git revert 359e4147
 ```
+
+## 后继修复
+
+| commit | 说明 |
+|---|---|
+| `507ae8b4` | **登录后白屏**：修复 App.tsx Hooks 顺序违规（条件 return 在 useEffect 之前导致渲染崩溃）。详见上方「Hooks 顺序警示」。 |

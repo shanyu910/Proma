@@ -285,7 +285,7 @@ function getSessionCliCommandPrefix(): string {
 function buildSessionCliAccessGuide(sessionId: string, historyPath: string): string {
   const cli = getSessionCliCommandPrefix()
   return [
-    `优先使用 Proma CLI 读取清洗后的会话历史，避免直接读取原始 JSONL。`,
+    `优先使用 Legis CLI 读取清洗后的会话历史，避免直接读取原始 JSONL。`,
     `命令前缀: ${cli}`,
     `建议流程:`,
     `1. ${cli} session info ${sessionId}`,
@@ -301,7 +301,7 @@ function buildSessionInfoBlock(sessionId: string, agentCwd: string): string {
   return `\n<session_info>\nSession ID: ${sessionId}\nSession CWD: ${agentCwd}\n` +
     `${buildSessionCliAccessGuide(sessionId, historyPath)}\n` +
     `重要：上方仅为最近 ${MAX_CONTEXT_MESSAGES} 条对话摘要，可能不完整。在继续之前，` +
-    `请先使用 Proma CLI 恢复完整上下文，确认「已经完成了哪些工作、进行到哪一步」，` +
+    `请先使用 Legis CLI 恢复完整上下文，确认「已经完成了哪些工作、进行到哪一步」，` +
     `然后从中断处继续，切勿重复执行已完成的步骤。\n</session_info>\n`
 }
 
@@ -382,7 +382,7 @@ function buildContextPrompt(sessionId: string, currentUserMessage: string, sessi
  * 构建 Session 恢复 prompt
  *
  * 当 SDK resume 失败（session 过期、thinking signature 不兼容等）时，
- * 注入 <session_recovery> 标签，指导 Agent 优先用 Proma CLI 读取清洗后的会话历史，
+ * 注入 <session_recovery> 标签，指导 Agent 优先用 Legis CLI 读取清洗后的会话历史，
  * 只有 CLI 不可用时才兜底读取原始 JSONL。
  */
 function buildRecoveryPrompt(
@@ -397,7 +397,7 @@ function buildRecoveryPrompt(
   const recoveryBlock =
     `<session_recovery>\n` +
     `你正在接续一个已有的 Agent 会话（因模型切换等原因需要重新建立连接）。\n` +
-    `请先使用 Proma CLI 读取清洗后的会话历史以恢复上下文，然后继续处理用户的最新请求。\n` +
+    `请先使用 Legis CLI 读取清洗后的会话历史以恢复上下文，然后继续处理用户的最新请求。\n` +
     `<session id="${sessionId}" title="${title}" cwd="${sessionHint.agentCwd}">\n` +
     `${buildSessionCliAccessGuide(sessionId, historyPath)}\n` +
     `</session>\n` +
@@ -454,7 +454,7 @@ function buildReferencedSessionsPrompt(
     const skillName = workspaceSlug
       ? `proma-workspace-${workspaceSlug}:session-cleaner`
       : 'session-cleaner'
-    return `<referenced_sessions>\n用户在消息中明确引用了以下同工作区 Agent 会话。需要这些会话的上下文时，优先使用 Proma CLI（也可以调用 session-cleaner skill：${skillName}，它是 CLI 的薄封装）读取清洗后的会话历史。按 info → outline/search → export 的顺序渐进式读取；不要假设会话内容，也不要直接 Read 原始 .jsonl 历史文件。\n${sessionBlocks.join('\n\n')}\n</referenced_sessions>`
+    return `<referenced_sessions>\n用户在消息中明确引用了以下同工作区 Agent 会话。需要这些会话的上下文时，优先使用 Legis CLI（也可以调用 session-cleaner skill：${skillName}，它是 CLI 的薄封装）读取清洗后的会话历史。按 info → outline/search → export 的顺序渐进式读取；不要假设会话内容，也不要直接 Read 原始 .jsonl 历史文件。\n${sessionBlocks.join('\n\n')}\n</referenced_sessions>`
   }
 
   return `<referenced_sessions>\n用户在消息中明确引用了以下同工作区 Agent 会话。不要假设这些会话的内容；需要上下文时，请先读取对应的 History path，再基于读取结果继续完成任务。\n\n重要提示：会话历史文件（.jsonl）可能包含大量消息和 tool results，文件较大。请优先使用 Grep 搜索关键词定位相关消息片段，再局部读取。避免一次性 Read 整个大文件。\n${sessionBlocks.join('\n\n')}\n</referenced_sessions>`
@@ -1120,7 +1120,7 @@ export class AgentOrchestrator {
               key: 'i',
               label: '报告问题',
               action: 'open_external',
-              payload: 'https://github.com/ErlichLiu/Proma/issues/new',
+              payload: 'https://github.com/shanyu910/Proma/issues/new',
             },
           ],
           canRetry: false,
