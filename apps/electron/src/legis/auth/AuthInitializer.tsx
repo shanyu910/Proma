@@ -17,7 +17,7 @@ import {
   clearStoredToken,
 } from './auth-state'
 import { checkSession } from './auth-api'
-import { fetchModelConfigData, clearSK, modelConfigAtom } from '../model/model-config'
+import { fetchModelConfigData, clearSK, modelConfigAtom, recommendedModelIdAtom } from '../model/model-config'
 import { fetchModelUsage, modelUsageAtom } from '../model/model-usage'
 import { syncModelConfigToChannels } from '../model/channel-sync'
 import { loadLegisConfig, legisConfigAtom } from '../config/legis-config'
@@ -57,6 +57,10 @@ export function AuthInitializer(): ReactElement | null {
 
         if (modelConfig) {
           store.set(modelConfigAtom, modelConfig)
+          // 设置推荐模型 ID（供 ModelManagementPanel 显示"推荐"标签）
+          if (modelConfig.provider?.selectedModel) {
+            store.set(recommendedModelIdAtom, modelConfig.provider.selectedModel)
+          }
           // 同步到 channels.json
           await syncModelConfigToChannels(modelConfig)
         }

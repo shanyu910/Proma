@@ -28,7 +28,7 @@ import { ExitPlanModeBanner } from './ExitPlanModeBanner'
 import { PlanModeDashedBorder } from './PlanModeDashedBorder'
 import { ModelSelector } from '@/components/chat/ModelSelector'
 import { AttachmentPreviewItem } from '@/components/chat/AttachmentPreviewItem'
-import { useRequireAuth, authStatusAtom } from '../../../legis'
+import { useAuthGate, authStatusAtom } from '../../../legis'
 import { QuotedSelectionChip } from '@/components/diff/QuotedSelectionChip'
 import { RichTextInput } from '@/components/ai-elements/rich-text-input'
 import { SpeechButton } from '@/components/ai-elements/speech-button'
@@ -296,7 +296,7 @@ function DisplayOptionsPopover({
 }
 
 export function AgentView({ sessionId }: { sessionId: string }): React.ReactElement {
-  const requireAuth = useRequireAuth()
+  const { requireAuth } = useAuthGate()
   const authStatus = useAtomValue(authStatusAtom)
   const [persistedSDKMessages, setPersistedSDKMessages] = React.useState<SDKMessage[]>([])
   const persistedSDKMessagesRef = React.useRef<SDKMessage[]>([])

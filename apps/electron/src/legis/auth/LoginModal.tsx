@@ -25,13 +25,15 @@ import {
   setStoredToken,
 } from './auth-state'
 import { login } from './auth-api'
-import { fetchModelConfigData, modelConfigAtom } from '../model/model-config'
+import { ChangePasswordDialog } from '../account/ChangePasswordDialog'
+import { fetchModelConfigData, modelConfigAtom, recommendedModelIdAtom } from '../model/model-config'
 import { fetchModelUsage, modelUsageAtom } from '../model/model-usage'
 import { syncModelConfigToChannels } from '../model/channel-sync'
 
 export function LoginModal(): ReactElement {
   const store = useStore()
   const [modal, setModal] = useAtom(loginModalAtom)
+  const [changePasswordModal, setChangePasswordModal] = useAtom(changePasswordModalAtom)
   const setStatus = useSetAtom(authStatusAtom)
   const setUser = useSetAtom(authUserAtom)
 
@@ -74,6 +76,10 @@ export function LoginModal(): ReactElement {
       const modelConfig = await fetchModelConfigData(result.token)
       if (modelConfig) {
         store.set(modelConfigAtom, modelConfig)
+        // 设置推荐模型 ID（供 ModelManagementPanel 显示"推荐"标签）
+        if (modelConfig.provider?.selectedModel) {
+          store.set(recommendedModelIdAtom, modelConfig.provider.selectedModel)
+        }
         await syncModelConfigToChannels(modelConfig)
       }
 
@@ -110,6 +116,7 @@ export function LoginModal(): ReactElement {
   }
 
   return (
+    <>
     <Dialog open={modal.open} onOpenChange={handleOpenChange}>
       <DialogContent className="!max-w-none w-[340px] p-6 gap-4" aria-describedby={undefined}>
         {/* 标题 */}
@@ -204,5 +211,12 @@ export function LoginModal(): ReactElement {
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* 强制改密弹窗（mustChangePassword=true 时触发） */}
+    <ChangePasswordDialog
+      open={changePasswordModal.open}
+      onClose={() => setChangePasswordModal({ open: false, reason: '' })}
+    />
+    </>
   )
 }

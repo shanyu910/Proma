@@ -25,7 +25,6 @@ export { AccountMenu } from './account/AccountMenu'
 export {
   modelConfigAtom,
   recommendedModelIdAtom,
-  getSK,
   clearSK,
   refreshSK,
   fetchModelConfigData,

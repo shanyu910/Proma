@@ -42,7 +42,6 @@ import {
 import { ChannelSettings } from "./ChannelSettings";
 import { GeneralSettings } from "./GeneralSettings";
 import { ModelManagementPanel } from "../../../legis/settings/ModelManagementPanel";
-import { AccountInfoCard } from "../../../legis/account/AccountInfoCard";
 import { ProxySettings } from "./ProxySettings";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { AboutSettings } from "./AboutSettings";

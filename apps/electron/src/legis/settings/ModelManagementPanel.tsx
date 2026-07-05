@@ -66,6 +66,21 @@ export function ModelManagementPanel(): ReactElement {
     }
   }, [availableModels.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 定时刷新余额（每 5 分钟）
+  useEffect(() => {
+    if (status !== 'authenticated') return
+    const interval = setInterval(async () => {
+      const token = await getStoredToken()
+      if (token) {
+        const usage = await fetchModelUsage(token)
+        if (usage) {
+          setModelUsage(usage)
+        }
+      }
+    }, 5 * 60 * 1000) // 5 分钟
+    return () => clearInterval(interval)
+  }, [status]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // 未登录：提示登录
   if (status !== 'authenticated') {
     return (
