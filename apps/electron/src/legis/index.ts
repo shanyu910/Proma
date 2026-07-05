@@ -8,6 +8,7 @@
 export { AuthInitializer } from './auth/AuthInitializer'
 export { LoginModal } from './auth/LoginModal'
 export { useRequireAuth } from './auth/useRequireAuth'
+export { useAuthGate } from './auth/useAuthGate'
 
 // 认证状态 atoms（供设置页/账号卡片使用）
 export {

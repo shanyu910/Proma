@@ -124,6 +124,8 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import type { ConversationMeta, AgentSessionMeta, AgentWorkspace, WorkspaceCapabilities } from '@legis/shared'
+import { useAuthGate, authStatusAtom, authUserAtom } from '../../../legis'
+import { loginModalAtom } from '../../../legis/auth/auth-state'
 
 function formatAutomationCount(count: number): string {
   return count > 99 ? '99+' : String(count)
@@ -608,6 +610,10 @@ export function LeftSidebar({ width }: LeftSidebarProps): React.ReactElement {
   const setAutomations = useSetAtom(automationsAtom)
   const automationCount = automations.length
   const setSettingsOpen = useSetAtom(settingsOpenAtom)
+  const setLoginModal = useSetAtom(loginModalAtom)
+  const authStatus = useAtomValue(authStatusAtom)
+  const authUser = useAtomValue(authUserAtom)
+  const isGuest = authStatus !== 'authenticated'
   const setSettingsTab = useSetAtom(settingsTabAtom)
   const [conversations, setConversations] = useAtom(conversationsAtom)
   const [currentConversationId, setCurrentConversationId] = useAtom(currentConversationIdAtom)
@@ -688,8 +694,13 @@ export function LeftSidebar({ width }: LeftSidebarProps): React.ReactElement {
   const setSearchDialogOpen = useSetAtom(searchDialogOpenAtom)
 
   const handleOpenSettings = React.useCallback((): void => {
+    // 未登录时拦截：弹登录窗，不进设置
+    if (authStatus !== 'authenticated') {
+      setLoginModal({ open: true, reason: '登录后即可使用设置', onSuccess: null })
+      return
+    }
     setSettingsOpen(true)
-  }, [setSettingsOpen])
+  }, [authStatus, setSettingsOpen, setLoginModal])
 
   const handleUpdateButtonClick = React.useCallback((): void => {
     if (updateStatus.status === 'downloaded') {
@@ -2160,17 +2171,23 @@ export function LeftSidebar({ width }: LeftSidebarProps): React.ReactElement {
             <TooltipTrigger asChild>
               <button
                 type="button"
-                aria-label="打开设置"
-                onClick={handleOpenSettings}
+                aria-label={isGuest ? '登录' : '打开设置'}
+                onClick={isGuest ? () => setLoginModal({ open: true, reason: '登录后即可使用全部功能', onSuccess: null }) : handleOpenSettings}
                 className="relative size-10 flex items-center justify-center rounded-[12px] transition-colors titlebar-no-drag hover:bg-foreground/5"
               >
-                <UserAvatar avatar={userProfile.avatar} size={28} />
-                {hasEnvironmentIssues && (
+                {isGuest ? (
+                  <div className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Settings size={16} />
+                  </div>
+                ) : (
+                  <UserAvatar avatar={userProfile.avatar} size={28} />
+                )}
+                {hasEnvironmentIssues && !isGuest && (
                   <span className="absolute top-0 right-0 w-2 h-2 rounded-full bg-red-500" />
                 )}
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">设置</TooltipContent>
+            <TooltipContent side="right">{isGuest ? '登录' : '设置'}</TooltipContent>
           </Tooltip>
         </div>
 
@@ -2600,41 +2617,60 @@ export function LeftSidebar({ width }: LeftSidebarProps): React.ReactElement {
         )}
       </div>
 
-      {/* 底部：用户资料 + 设置入口 */}
+      {/* 底部：用户资料 + 设置入口（未登录时显示登录按钮） */}
       <div className="px-3 pb-3">
-        <div className="flex items-center gap-2 rounded-[10px] px-3 py-2 text-foreground/70 transition-colors titlebar-no-drag hover:bg-foreground/[0.04] hover:text-foreground">
+        {isGuest ? (
+          /* 未登录：显示登录按钮 */
           <button
-            onClick={handleOpenSettings}
-            className="min-w-0 flex flex-1 items-center gap-3 text-left"
+            onClick={() => setLoginModal({ open: true, reason: '登录后即可使用全部功能', onSuccess: null })}
+            className="w-full flex items-center gap-3 rounded-[10px] px-3 py-2 text-foreground/70 transition-colors titlebar-no-drag hover:bg-primary/10 hover:text-primary"
           >
-            <UserAvatar avatar={userProfile.avatar} size={28} />
-            <span className="flex-1 text-sm truncate text-left">{userProfile.userName}</span>
-          </button>
-          {hasUpdate && (
-            <SidebarUpdateButton
-              status={updateStatus}
-              onClick={handleUpdateButtonClick}
-              tooltipSide="top"
-              className="h-6 flex-shrink-0 inline-flex items-center justify-center rounded-full bg-primary/10 px-2 text-[11px] font-medium leading-none text-primary hover:bg-primary/15"
-              readyDotClassName="hidden"
-              showText
-              hideIcon
-            />
-          )}
-          <button
-            type="button"
-            aria-label="打开设置"
-            onClick={handleOpenSettings}
-            className="relative flex size-7 flex-shrink-0 items-center justify-center rounded-[8px] text-foreground/40 transition-colors hover:bg-foreground/[0.05] hover:text-foreground/70"
-          >
-            <div className="relative flex-shrink-0 text-foreground/40">
-              <Settings size={16} />
-              {hasEnvironmentIssues && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500" />
-              )}
+            <div className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Settings size={14} />
+            </div>
+            <div className="flex-1 text-left">
+              <div className="text-sm font-medium">登录</div>
+              <div className="text-[11px] text-muted-foreground">登录后可用全部功能</div>
             </div>
           </button>
-        </div>
+        ) : (
+          /* 已登录：显示用户信息 + 设置入口 */
+          <div className="flex items-center gap-2 rounded-[10px] px-3 py-2 text-foreground/70 transition-colors titlebar-no-drag hover:bg-foreground/[0.04] hover:text-foreground">
+            <button
+              onClick={handleOpenSettings}
+              className="min-w-0 flex flex-1 items-center gap-3 text-left"
+            >
+              <UserAvatar avatar={userProfile.avatar} size={28} />
+              <span className="flex-1 text-sm truncate text-left">
+                {authUser?.fullName || userProfile.userName}
+              </span>
+            </button>
+            {hasUpdate && (
+              <SidebarUpdateButton
+                status={updateStatus}
+                onClick={handleUpdateButtonClick}
+                tooltipSide="top"
+                className="h-6 flex-shrink-0 inline-flex items-center justify-center rounded-full bg-primary/10 px-2 text-[11px] font-medium leading-none text-primary hover:bg-primary/15"
+                readyDotClassName="hidden"
+                showText
+                hideIcon
+              />
+            )}
+            <button
+              type="button"
+              aria-label="打开设置"
+              onClick={handleOpenSettings}
+              className="relative flex size-7 flex-shrink-0 items-center justify-center rounded-[8px] text-foreground/40 transition-colors hover:bg-foreground/[0.05] hover:text-foreground/70"
+            >
+              <div className="relative flex-shrink-0 text-foreground/40">
+                <Settings size={16} />
+                {hasEnvironmentIssues && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500" />
+                )}
+              </div>
+            </button>
+          </div>
+        )}
       </div>
 
       {deleteDialog}

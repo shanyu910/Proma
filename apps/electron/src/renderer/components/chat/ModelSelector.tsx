@@ -29,6 +29,7 @@ import { useConversationIdOptional } from '@/contexts/session-context'
 import { getModelLogo, getChannelLogo, DefaultLogo } from '@/lib/model-logo'
 import { cn } from '@/lib/utils'
 import type { Channel, ModelOption } from '@legis/shared'
+import { useAuthGate } from '../../../legis'
 
 /** 从渠道列表构建扁平化的模型选项 */
 function buildModelOptions(channels: Channel[], filterChannelId?: string, filterChannelIds?: string[]): ModelOption[] {
@@ -93,6 +94,7 @@ export function ModelSelector({
   showChannelInTrigger = false,
   useSharedOpenState = false,
 }: ModelSelectorProps = {}): React.ReactElement {
+  const { isGuest, requireAuth } = useAuthGate()
   const [conversationModel, setConversationModel] = useConversationModelOptional()
   const conversationId = useConversationIdOptional()
   const setConversations = useSetAtom(conversationsAtom)
@@ -222,6 +224,20 @@ export function ModelSelector({
       const target = flatOptions[highlightIndex >= 0 ? highlightIndex : 0]
       if (target) handleSelect(target)
     }
+  }
+
+  // 未登录：禁用模型选择，点击弹登录
+  if (isGuest) {
+    return (
+      <button
+        type="button"
+        onClick={() => requireAuth('选择模型', () => {})}
+        className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground/40 transition-colors cursor-pointer"
+      >
+        <Cpu className="size-3.5" />
+        <span>登录后可选模型</span>
+      </button>
+    )
   }
 
   if (channelsLoaded && modelOptions.length === 0) {
