@@ -1,0 +1,200 @@
+/**
+ * ChangePasswordDialog — 修改密码弹窗
+ *
+ * 由 AccountMenu 的"修改密码"按钮触发。
+ * 调用 POST /auth/change-password（需当前密码 + 新密码）。
+ */
+
+import { useState, type ReactElement } from 'react'
+import { useStore } from 'jotai'
+import { authUserAtom, getStoredToken } from '../auth/auth-state'
+import { changePassword } from '../auth/auth-api'
+
+export function ChangePasswordDialog({
+  open,
+  onClose,
+}: {
+  open: boolean
+  onClose: () => void
+}): ReactElement | null {
+  const store = useStore()
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+
+  if (!open) return null
+
+  const handleSubmit = async (): Promise<void> => {
+    setError('')
+
+    if (!currentPassword.trim()) {
+      setError('请输入当前密码')
+      return
+    }
+    if (newPassword.length < 8) {
+      setError('新密码至少需要 8 位')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setError('两次输入的新密码不一致')
+      return
+    }
+    if (newPassword === currentPassword) {
+      setError('新密码不能与当前密码相同')
+      return
+    }
+
+    setLoading(true)
+    const token = await getStoredToken()
+    if (!token) {
+      setError('登录已失效，请重新登录')
+      setLoading(false)
+      return
+    }
+
+    const result = await changePassword(token, currentPassword, newPassword)
+
+    if (result.success) {
+      setSuccess(true)
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      // 2 秒后自动关闭
+      setTimeout(() => {
+        setSuccess(false)
+        onClose()
+      }, 2000)
+    } else {
+      setError(result.error || '修改密码失败')
+    }
+    setLoading(false)
+  }
+
+  const handleClose = (): void => {
+    if (loading) return
+    setCurrentPassword('')
+    setNewPassword('')
+    setConfirmPassword('')
+    setError('')
+    setSuccess(false)
+    onClose()
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      onClick={handleClose}
+    >
+      <div
+        className="w-full max-w-[380px] mx-4 bg-card border border-border rounded-2xl shadow-xl p-8 space-y-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {success ? (
+          <div className="text-center py-4">
+            <div className="text-2xl mb-2">✓</div>
+            <p className="text-sm text-foreground">密码修改成功</p>
+          </div>
+        ) : (
+          <>
+            {/* 标题 */}
+            <div className="text-center space-y-1">
+              <h2 className="text-lg font-semibold text-foreground">修改密码</h2>
+            </div>
+
+            {/* 错误提示 */}
+            {error && (
+              <div className="bg-destructive/10 border border-destructive/30 text-destructive text-[13px] rounded-lg px-3 py-2">
+                {error}
+              </div>
+            )}
+
+            {/* 当前密码 */}
+            <div className="space-y-2">
+              <label className="text-[13px] font-medium text-foreground/70">
+                当前密码
+              </label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="请输入当前密码"
+                autoComplete="current-password"
+                autoFocus
+                disabled={loading}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSubmit()
+                }}
+                className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-foreground/30 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+              />
+            </div>
+
+            {/* 新密码 */}
+            <div className="space-y-2">
+              <label className="text-[13px] font-medium text-foreground/70">
+                新密码
+              </label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="至少 8 位"
+                autoComplete="new-password"
+                disabled={loading}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSubmit()
+                }}
+                className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-foreground/30 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+              />
+            </div>
+
+            {/* 确认新密码 */}
+            <div className="space-y-2">
+              <label className="text-[13px] font-medium text-foreground/70">
+                确认新密码
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="再次输入新密码"
+                autoComplete="new-password"
+                disabled={loading}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSubmit()
+                }}
+                className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-foreground/30 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+              />
+            </div>
+
+            {/* 按钮 */}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleClose}
+                disabled={loading}
+                className="flex-1 h-10 rounded-lg border border-border text-foreground/70 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={loading}
+                className="flex-1 h-10 rounded-lg bg-primary text-primary-foreground text-sm font-medium flex items-center justify-center transition-all hover:opacity-90 disabled:opacity-50"
+              >
+                {loading ? (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                ) : (
+                  '确认修改'
+                )}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
