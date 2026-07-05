@@ -1050,6 +1050,15 @@ export interface ElectronAPI {
     setSK: (sk: string) => Promise<void>
     clearSK: () => Promise<void>
   }
+
+  // ===== Legis 官方渠道同步 =====
+  legisChannel: {
+    upsertOfficial: (input: {
+      baseUrl: string
+      models: { id: string; name: string; enabled: boolean }[]
+      selectedModelId: string
+    }) => Promise<string>
+  }
 }
 
 interface MigrationExportResult {
@@ -2398,6 +2407,11 @@ const electronAPI: ElectronAPI = {
   legisSK: {
     setSK: (sk: string) => ipcRenderer.invoke('legis:set-sk', sk),
     clearSK: () => ipcRenderer.invoke('legis:clear-sk'),
+  },
+
+  // ===== Legis 官方渠道同步 =====
+  legisChannel: {
+    upsertOfficial: (input) => ipcRenderer.invoke('legis:upsert-official-channel', input),
   },
 }
 

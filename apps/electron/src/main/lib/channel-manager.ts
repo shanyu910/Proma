@@ -768,3 +768,87 @@ async function fetchGoogleModels(baseUrl: string, apiKey: string, proxyUrl?: str
     models,
   }
 }
+
+// ===== Legis 官方渠道专用管理 =====
+
+/** Legis 官方渠道固定 ID */
+const LEGIS_OFFICIAL_CHANNEL_ID = 'legis-official'
+
+export interface UpsertOfficialChannelInput {
+  baseUrl: string
+  models: { id: string; name: string; enabled: boolean }[]
+  selectedModelId: string
+}
+
+/**
+ * 创建或更新 Legis 官方渠道（用固定 ID，不生成 UUID）
+ *
+ * 同时：
+ * - 禁用所有非官方渠道
+ * - 清理重复的旧官方渠道（之前用 createChannel 创建的 UUID 渠道）
+ *
+ * @returns 官方渠道 ID（固定 'legis-official'）
+ */
+export function upsertOfficialChannel(input: UpsertOfficialChannelInput): string {
+  const config = readConfig()
+  const now = Date.now()
+
+  // 清理：删除所有旧的 "Legis 官方" 渠道（name 匹配但 id 不是固定 ID 的）
+  config.channels = config.channels.filter(
+    (c) => !(c.name === 'Legis 官方' && c.id !== LEGIS_OFFICIAL_CHANNEL_ID),
+  )
+
+  // 禁用所有非官方渠道
+  for (const channel of config.channels) {
+    if (channel.id !== LEGIS_OFFICIAL_CHANNEL_ID) {
+      channel.enabled = false
+    }
+  }
+
+  // 查找或创建官方渠道
+  const existing = config.channels.find((c) => c.id === LEGIS_OFFICIAL_CHANNEL_ID)
+
+  if (existing) {
+    // 更新（保留用户模型勾选偏好）
+    const oldModelEnabledMap = new Map(existing.models.map((m) => [m.id, m.enabled]))
+    existing.baseUrl = input.baseUrl
+    existing.apiKey = encryptApiKey(LEGIS_SK_PLACEHOLDER)
+    existing.models = input.models.map((m) => ({
+      id: m.id,
+      name: m.name,
+      enabled: oldModelEnabledMap.get(m.id) ?? true,
+      source: 'fetched' as const,
+    }))
+    existing.enabled = true
+    existing.updatedAt = now
+  } else {
+    // 创建（用固定 ID，不走 randomUUID）
+    config.channels.push({
+      id: LEGIS_OFFICIAL_CHANNEL_ID,
+      name: 'Legis 官方',
+      provider: 'anthropic',
+      baseUrl: input.baseUrl,
+      apiKey: encryptApiKey(LEGIS_SK_PLACEHOLDER),
+      models: input.models.map((m) => ({
+        id: m.id,
+        name: m.name,
+        enabled: true,
+        source: 'fetched' as const,
+      })),
+      enabled: true,
+      createdAt: now,
+      updatedAt: now,
+    })
+  }
+
+  writeConfig(config)
+  console.log('[Legis] 官方渠道已同步，渠道数:', config.channels.length)
+  return LEGIS_OFFICIAL_CHANNEL_ID
+}
+
+/**
+ * 获取 Legis 官方渠道固定 ID（供外部使用）
+ */
+export function getOfficialChannelId(): string {
+  return LEGIS_OFFICIAL_CHANNEL_ID
+}

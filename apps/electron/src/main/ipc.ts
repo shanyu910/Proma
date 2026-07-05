@@ -151,6 +151,7 @@ import { extractTextFromAttachment } from './lib/document-parser'
 import { getTutorialContent, createWelcomeConversation } from './lib/tutorial-service'
 import { getUserProfile, updateUserProfile } from './lib/user-profile-service'
 import { getSettings, updateSettings } from './lib/settings-service'
+import { upsertOfficialChannel } from './lib/channel-manager'
 import {
   handleSecureTokenGet,
   handleSecureTokenSet,
@@ -4366,4 +4367,9 @@ export function registerIpcHandlers(): void {
   // ===== Legis SK 内存存储（仅内存，不写磁盘） =====
   ipcMain.handle('legis:set-sk', (_event, sk: string) => handleSetSK(_event, sk))
   ipcMain.handle('legis:clear-sk', handleClearSK)
+
+  // ===== Legis 官方渠道同步（用固定 ID，不走 createChannel 的 UUID） =====
+  ipcMain.handle('legis:upsert-official-channel', (_event, input) => {
+    return upsertOfficialChannel(input)
+  })
 }

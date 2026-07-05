@@ -1,90 +1,44 @@
 /**
  * model-config → channels.json 同步
  *
- * 把 /auth/me/model-config 返回的 provider 信息包装成"官方渠道"写入 channels.json。
- * 同时禁用所有旧渠道，并切换默认渠道为官方渠道。
+ * 通过主进程专用 IPC 'legis:upsert-official-channel' 写入官方渠道，
+ * 用固定 ID 'legis-official'（不走 createChannel 的 UUID 生成）。
  *
- * apiKey 字段写占位符（真 SK 存主进程内存），由 channel-manager 的 decryptApiKey 替换。
+ * 主进程的 upsertOfficialChannel 同时负责：
+ * - 禁用所有旧渠道
+ * - 清理重复的旧官方渠道（之前误用 createChannel 创建的）
+ * - 用固定 ID 创建/更新官方渠道（apiKey 写占位符）
  */
 
 import type { ModelConfig } from '../types'
 
-/** 官方渠道固定 ID */
+/** 官方渠道固定 ID（与主进程 channel-manager.ts 保持一致） */
 export const OFFICIAL_CHANNEL_ID = 'legis-official'
-
-/** channels.json 里 apiKey 的占位符（真 SK 在主进程内存） */
-export const SK_PLACEHOLDER = '__LEGIS_INJECT__'
 
 /**
  * 把 model-config 同步到 channels.json
  *
- * 完整策略：
- * 1. 创建/更新 Legis 官方渠道（apiKey 写占位符）
- * 2. 禁用所有非官方渠道（enabled = false），用户无法切回旧渠道
- * 3. 更新 settings.json：agentChannelId 切到官方渠道
- *
  * @param config model-config 响应数据
+ * @returns 官方渠道 ID（固定 'legis-official'），失败为 null
  */
-export async function syncModelConfigToChannels(config: ModelConfig): Promise<void> {
+export async function syncModelConfigToChannels(config: ModelConfig): Promise<string | null> {
   if (!config.provider || config.status !== 'active') {
-    return
+    return null
   }
 
   try {
-    // 读现有渠道
-    const channels = await window.electronAPI.listChannels()
-
-    // ---- 步骤 1：创建/更新官方渠道 ----
-    const existingOfficial = channels.find((c) => c.id === OFFICIAL_CHANNEL_ID)
-    const officialModels = config.provider.models.map((m) => ({
-      id: m.id,
-      name: m.name,
-      enabled: true,
-      source: 'fetched' as const,
-    }))
-
-    // 保留用户旧的模型勾选偏好
-    if (existingOfficial) {
-      const oldModelEnabledMap = new Map(
-        existingOfficial.models.map((m) => [m.id, m.enabled]),
-      )
-      officialModels.forEach((m) => {
-        m.enabled = oldModelEnabledMap.get(m.id) ?? true
-      })
-    }
-
-    if (existingOfficial) {
-      // 更新官方渠道（不更新 apiKey，保留占位符）
-      await window.electronAPI.updateChannel(OFFICIAL_CHANNEL_ID, {
-        name: 'Legis 官方',
-        baseUrl: config.provider.baseUrl,
-        apiKey: '',
-        models: officialModels,
+    // 调主进程专用 IPC（用固定 ID 写渠道，不走 createChannel 的 UUID）
+    const channelId = await window.electronAPI.legisChannel.upsertOfficial({
+      baseUrl: config.provider.baseUrl,
+      models: config.provider.models.map((m) => ({
+        id: m.id,
+        name: m.name,
         enabled: true,
-      })
-    } else {
-      // 创建官方渠道
-      await window.electronAPI.createChannel({
-        name: 'Legis 官方',
-        provider: 'anthropic',
-        baseUrl: config.provider.baseUrl,
-        apiKey: SK_PLACEHOLDER,
-        models: officialModels,
-        enabled: true,
-      })
-    }
+      })),
+      selectedModelId: config.provider.selectedModel,
+    })
 
-    // ---- 步骤 2：禁用所有非官方渠道 ----
-    for (const channel of channels) {
-      if (channel.id !== OFFICIAL_CHANNEL_ID && channel.enabled) {
-        await window.electronAPI.updateChannel(channel.id, {
-          enabled: false,
-        })
-      }
-    }
-
-    // ---- 步骤 3：切换默认渠道为官方渠道 ----
-    // 更新 settings.json 的 agentChannelId / agentChannelIds
+    // 更新 settings.json：切换默认渠道为官方渠道
     const settings = await window.electronAPI.getSettings()
     await window.electronAPI.updateSettings({
       agentChannelId: OFFICIAL_CHANNEL_ID,
@@ -94,7 +48,10 @@ export async function syncModelConfigToChannels(config: ModelConfig): Promise<vo
         ? settings.agentModelId
         : config.provider.selectedModel,
     })
+
+    return channelId
   } catch (error) {
     console.error('[Legis] 同步 model-config 到 channels.json 失败:', error)
+    return null
   }
 }
