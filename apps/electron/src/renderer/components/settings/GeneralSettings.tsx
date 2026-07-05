@@ -16,7 +16,6 @@ import {
   SettingsRow,
   SettingsToggle,
 } from './primitives'
-import { AccountInfoCard } from '../../../legis/account/AccountInfoCard'
 import { Popover, PopoverTrigger, PopoverContent } from '../ui/popover'
 import {
   Select,
@@ -140,9 +139,6 @@ export function GeneralSettings(): React.ReactElement {
 
   return (
     <div className="space-y-6">
-      {/* Legis 账号信息 */}
-      <AccountInfoCard />
-
       {/* 用户档案区域 */}
       <SettingsSection
         title="用户档案"

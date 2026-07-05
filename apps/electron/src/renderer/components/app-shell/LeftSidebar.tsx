@@ -124,7 +124,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import type { ConversationMeta, AgentSessionMeta, AgentWorkspace, WorkspaceCapabilities } from '@legis/shared'
-import { useAuthGate, authStatusAtom, authUserAtom } from '../../../legis'
+import { useAuthGate, authStatusAtom, authUserAtom, AccountMenu } from '../../../legis'
 import { loginModalAtom } from '../../../legis/auth/auth-state'
 
 function formatAutomationCount(count: number): string {
@@ -2634,17 +2634,11 @@ export function LeftSidebar({ width }: LeftSidebarProps): React.ReactElement {
             </div>
           </button>
         ) : (
-          /* 已登录：显示用户信息 + 设置入口 */
-          <div className="flex items-center gap-2 rounded-[10px] px-3 py-2 text-foreground/70 transition-colors titlebar-no-drag hover:bg-foreground/[0.04] hover:text-foreground">
-            <button
-              onClick={handleOpenSettings}
-              className="min-w-0 flex flex-1 items-center gap-3 text-left"
-            >
-              <UserAvatar avatar={userProfile.avatar} size={28} />
-              <span className="flex-1 text-sm truncate text-left">
-                {authUser?.fullName || userProfile.userName}
-              </span>
-            </button>
+          /* 已登录：显示账号弹出菜单 + 设置入口 */
+          <div className="flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <AccountMenu />
+            </div>
             {hasUpdate && (
               <SidebarUpdateButton
                 status={updateStatus}

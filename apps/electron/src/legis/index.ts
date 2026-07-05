@@ -18,6 +18,9 @@ export {
 } from './auth/auth-state'
 export { changePassword } from './auth/auth-api'
 
+// 账号弹出菜单（供侧边栏使用）
+export { AccountMenu } from './account/AccountMenu'
+
 // 模型配置 + 余额（供设置页使用）
 export {
   modelConfigAtom,
