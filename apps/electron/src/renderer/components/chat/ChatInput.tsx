@@ -422,7 +422,7 @@ export function ChatInput({ conversationId, streaming, pendingAttachments, onSet
             onSubmit={handleSend}
             onPasteFiles={handlePasteFiles}
             disabled={isGuest}
-            placeholder={isGuest ? '🔑 登录后开始对话' : (sendWithCmdEnter ? '输入消息... (⌘/Ctrl+Enter 发送，Enter 换行)' : '输入消息... (Enter 发送，Shift+Enter 换行)')}
+            placeholder={sendWithCmdEnter ? '输入消息... (⌘/Ctrl+Enter 发送，Enter 换行)' : '输入消息... (Enter 发送，Shift+Enter 换行)'}
             autoFocusTrigger={conversationId}
             sendWithCmdEnter={sendWithCmdEnter}
           />
