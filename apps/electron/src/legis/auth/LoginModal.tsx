@@ -114,7 +114,7 @@ export function LoginModal(): ReactElement | null {
       onClick={handleClose}
     >
       <div
-        className="w-full max-w-[380px] mx-4 bg-card border border-border rounded-2xl shadow-xl p-8 space-y-6"
+        className="w-full max-w-[340px] mx-4 bg-card border border-border rounded-2xl shadow-xl p-6 space-y-5"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 标题 */}
