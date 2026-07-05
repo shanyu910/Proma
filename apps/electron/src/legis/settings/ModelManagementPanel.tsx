@@ -27,7 +27,7 @@ import { getStoredToken } from '../auth/auth-state'
 import type { ModelItem } from '../types'
 
 /** AgentSkill 网站地址（用户购买余量） */
-const AGENTSKILL_WEBSITE = 'http://14.103.216.135:31006'
+const AGENTSKILL_WEBSITE = 'http://14.103.216.135:31003/'
 
 export function ModelManagementPanel(): ReactElement {
   const status = useAtomValue(authStatusAtom)
