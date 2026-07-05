@@ -1,12 +1,18 @@
 /**
  * ChangePasswordDialog — 修改密码弹窗
  *
- * 由 AccountMenu 的"修改密码"按钮触发。
- * 调用 POST /auth/change-password（需当前密码 + 新密码）。
+ * 使用 Radix Dialog（自带 Portal），渲染到 document.body，
+ * 不受 LeftSidebar 祖先 CSS（transform/filter）的定位干扰。
  */
 
 import { useState, type ReactElement } from 'react'
 import { useStore } from 'jotai'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { authUserAtom, getStoredToken } from '../auth/auth-state'
 import { changePassword } from '../auth/auth-api'
 
@@ -16,7 +22,7 @@ export function ChangePasswordDialog({
 }: {
   open: boolean
   onClose: () => void
-}): ReactElement | null {
+}): ReactElement {
   const store = useStore()
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -24,8 +30,6 @@ export function ChangePasswordDialog({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
-
-  if (!open) return null
 
   const handleSubmit = async (): Promise<void> => {
     setError('')
@@ -73,36 +77,32 @@ export function ChangePasswordDialog({
     setLoading(false)
   }
 
-  const handleClose = (): void => {
+  const handleOpenChange = (next: boolean): void => {
     if (loading) return
-    setCurrentPassword('')
-    setNewPassword('')
-    setConfirmPassword('')
-    setError('')
-    setSuccess(false)
-    onClose()
+    if (!next) {
+      // 关闭时重置表单
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setError('')
+      setSuccess(false)
+    }
+    if (!next) onClose()
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      onClick={handleClose}
-    >
-      <div
-        className="w-full max-w-[380px] mx-4 bg-card border border-border rounded-2xl shadow-xl p-8 space-y-5"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-[380px] p-8 gap-5" aria-describedby={undefined}>
         {success ? (
-          <div className="text-center py-4">
+          <div className="text-center py-6">
             <div className="text-2xl mb-2">✓</div>
             <p className="text-sm text-foreground">密码修改成功</p>
           </div>
         ) : (
           <>
-            {/* 标题 */}
-            <div className="text-center space-y-1">
-              <h2 className="text-lg font-semibold text-foreground">修改密码</h2>
-            </div>
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold text-foreground">修改密码</DialogTitle>
+            </DialogHeader>
 
             {/* 错误提示 */}
             {error && (
@@ -113,9 +113,7 @@ export function ChangePasswordDialog({
 
             {/* 当前密码 */}
             <div className="space-y-2">
-              <label className="text-[13px] font-medium text-foreground/70">
-                当前密码
-              </label>
+              <label className="text-[13px] font-medium text-foreground/70">当前密码</label>
               <input
                 type="password"
                 value={currentPassword}
@@ -133,9 +131,7 @@ export function ChangePasswordDialog({
 
             {/* 新密码 */}
             <div className="space-y-2">
-              <label className="text-[13px] font-medium text-foreground/70">
-                新密码
-              </label>
+              <label className="text-[13px] font-medium text-foreground/70">新密码</label>
               <input
                 type="password"
                 value={newPassword}
@@ -152,9 +148,7 @@ export function ChangePasswordDialog({
 
             {/* 确认新密码 */}
             <div className="space-y-2">
-              <label className="text-[13px] font-medium text-foreground/70">
-                确认新密码
-              </label>
+              <label className="text-[13px] font-medium text-foreground/70">确认新密码</label>
               <input
                 type="password"
                 value={confirmPassword}
@@ -173,7 +167,7 @@ export function ChangePasswordDialog({
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={handleClose}
+                onClick={() => handleOpenChange(false)}
                 disabled={loading}
                 className="flex-1 h-10 rounded-lg border border-border text-foreground/70 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-50"
               >
@@ -194,7 +188,7 @@ export function ChangePasswordDialog({
             </div>
           </>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
