@@ -92,28 +92,28 @@ export function ChangePasswordDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[380px] p-8 gap-5" aria-describedby={undefined}>
+      <DialogContent className="max-w-[340px] p-5 gap-3" aria-describedby={undefined}>
         {success ? (
-          <div className="text-center py-6">
-            <div className="text-2xl mb-2">✓</div>
+          <div className="text-center py-4">
+            <div className="text-xl mb-1">✓</div>
             <p className="text-sm text-foreground">密码修改成功</p>
           </div>
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle className="text-lg font-semibold text-foreground">修改密码</DialogTitle>
+              <DialogTitle className="text-base font-semibold text-foreground">修改密码</DialogTitle>
             </DialogHeader>
 
             {/* 错误提示 */}
             {error && (
-              <div className="bg-destructive/10 border border-destructive/30 text-destructive text-[13px] rounded-lg px-3 py-2">
+              <div className="bg-destructive/10 border border-destructive/30 text-destructive text-xs rounded-lg px-3 py-1.5">
                 {error}
               </div>
             )}
 
             {/* 当前密码 */}
-            <div className="space-y-2">
-              <label className="text-[13px] font-medium text-foreground/70">当前密码</label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-foreground/60">当前密码</label>
               <input
                 type="password"
                 value={currentPassword}
@@ -125,13 +125,13 @@ export function ChangePasswordDialog({
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleSubmit()
                 }}
-                className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-foreground/30 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+                className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-foreground/30 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
               />
             </div>
 
             {/* 新密码 */}
-            <div className="space-y-2">
-              <label className="text-[13px] font-medium text-foreground/70">新密码</label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-foreground/60">新密码</label>
               <input
                 type="password"
                 value={newPassword}
@@ -142,13 +142,13 @@ export function ChangePasswordDialog({
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleSubmit()
                 }}
-                className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-foreground/30 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+                className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-foreground/30 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
               />
             </div>
 
             {/* 确认新密码 */}
-            <div className="space-y-2">
-              <label className="text-[13px] font-medium text-foreground/70">确认新密码</label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-foreground/60">确认新密码</label>
               <input
                 type="password"
                 value={confirmPassword}
@@ -159,17 +159,17 @@ export function ChangePasswordDialog({
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleSubmit()
                 }}
-                className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-foreground/30 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+                className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-foreground/30 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
               />
             </div>
 
             {/* 按钮 */}
-            <div className="flex gap-3">
+            <div className="flex gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => handleOpenChange(false)}
                 disabled={loading}
-                className="flex-1 h-10 rounded-lg border border-border text-foreground/70 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-50"
+                className="flex-1 h-9 rounded-lg border border-border text-foreground/70 text-sm transition-colors hover:bg-muted disabled:opacity-50"
               >
                 取消
               </button>
@@ -177,12 +177,12 @@ export function ChangePasswordDialog({
                 type="button"
                 onClick={handleSubmit}
                 disabled={loading}
-                className="flex-1 h-10 rounded-lg bg-primary text-primary-foreground text-sm font-medium flex items-center justify-center transition-all hover:opacity-90 disabled:opacity-50"
+                className="flex-1 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-medium flex items-center justify-center transition-all hover:opacity-90 disabled:opacity-50"
               >
                 {loading ? (
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
                 ) : (
-                  '确认修改'
+                  '确认'
                 )}
               </button>
             </div>
