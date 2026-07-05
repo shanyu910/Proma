@@ -9,6 +9,7 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
   root: resolve(__dirname, 'src/renderer'),
+  envDir: resolve(__dirname), // .env 从 apps/electron/ 根目录读取（而非默认的 src/renderer/）
   base: './',
   build: {
     outDir: resolve(__dirname, 'dist/renderer'),
