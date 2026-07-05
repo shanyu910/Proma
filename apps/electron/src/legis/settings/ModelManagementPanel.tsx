@@ -8,6 +8,7 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { RefreshCw, ExternalLink, Check } from 'lucide-react'
+import { channelsAtom } from '@/atoms/chat-atoms'
 import {
   authStatusAtom,
   loginModalAtom,
@@ -35,7 +36,13 @@ export function ModelManagementPanel(): ReactElement {
   const recommendedModel = useAtomValue(recommendedModelIdAtom)
   const [config, setConfig] = useAtom(legisConfigAtom)
   const setLoginModal = useSetAtom(loginModalAtom)
+  const setChannels = useSetAtom(channelsAtom)
   const [refreshing, setRefreshing] = useState(false)
+
+  /** 勾选后刷新渠道 atom，让 ModelSelector 实时感知变化 */
+  const refreshChannels = (): void => {
+    void window.electronAPI.listChannels().then(setChannels).catch(console.error)
+  }
 
   // 从 modelConfig 提取模型列表和推荐模型
   const availableModels: ModelItem[] = modelConfig?.provider?.models ?? []
@@ -96,8 +103,10 @@ export function ModelManagementPanel(): ReactElement {
       ? selectedModelIds.filter((id) => id !== modelId)
       : [...selectedModelIds, modelId]
     setConfig(updateSelectedModels(config, newSelection))
-    // 同步到渠道（ModelSelector 读的是 channel.models[].enabled）
-    void window.electronAPI.legisChannel.updateModelSelection(newSelection)
+    // 同步到渠道磁盘（ModelSelector 读的是 channel.models[].enabled）
+    void window.electronAPI.legisChannel.updateModelSelection(newSelection).then(() => {
+      refreshChannels()  // 刷新内存中的 channelsAtom，让 ModelSelector 实时感知
+    })
   }
 
   // 全选/全不选
@@ -105,7 +114,9 @@ export function ModelManagementPanel(): ReactElement {
   const toggleAll = (): void => {
     const newSelection = allSelected ? [] : availableModels.map((m) => m.id)
     setConfig(updateSelectedModels(config, newSelection))
-    void window.electronAPI.legisChannel.updateModelSelection(newSelection)
+    void window.electronAPI.legisChannel.updateModelSelection(newSelection).then(() => {
+      refreshChannels()
+    })
   }
 
   // 刷新余额
