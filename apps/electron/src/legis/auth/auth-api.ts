@@ -21,7 +21,7 @@ import type {
  * fallback 为接口验证时确认的地址。
  */
 const SERVER_URL: string =
-  import.meta.env.VITE_LEGIS_SERVER_URL || 'http://10.167.1.251:31006'
+  import.meta.env.VITE_LEGIS_SERVER_URL || 'http://14.103.216.135:31006'
 
 /**
  * 登录结果
