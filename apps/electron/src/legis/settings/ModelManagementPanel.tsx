@@ -33,6 +33,7 @@ export function ModelManagementPanel(): ReactElement {
   const status = useAtomValue(authStatusAtom)
   const modelConfig = useAtomValue(modelConfigAtom)
   const usage = useAtomValue(modelUsageAtom)
+  const setModelUsage = useSetAtom(modelUsageAtom)
   const recommendedModel = useAtomValue(recommendedModelIdAtom)
   const [config, setConfig] = useAtom(legisConfigAtom)
   const setLoginModal = useSetAtom(loginModalAtom)
@@ -124,7 +125,10 @@ export function ModelManagementPanel(): ReactElement {
     setRefreshing(true)
     const token = await getStoredToken()
     if (token) {
-      await fetchModelUsage(token)
+      const usage = await fetchModelUsage(token)
+      if (usage) {
+        setModelUsage(usage)
+      }
     }
     setRefreshing(false)
   }
