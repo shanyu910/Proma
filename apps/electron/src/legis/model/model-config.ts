@@ -40,10 +40,17 @@ export function getAgentskillBaseUrl(): string | null {
 
 /**
  * 清除内存中的 SK 和 baseUrl（退出登录时调用）
+ *
+ * 同时清除主进程内存中的 SK。
  */
-export function clearSK(): void {
+export async function clearSK(): Promise<void> {
   skInMemory = null
   agentskillBaseUrl = null
+  try {
+    await window.electronAPI.legisSK.clearSK()
+  } catch {
+    // ignore
+  }
 }
 
 // ---- Atoms ----
@@ -139,6 +146,13 @@ export async function fetchModelConfigData(token: string): Promise<ModelConfig |
     // SK 仅存内存
     skInMemory = config.provider.apiKey
     agentskillBaseUrl = config.provider.baseUrl
+
+    // 同步 SK 到主进程内存（供主进程 decryptApiKey 读取）
+    try {
+      await window.electronAPI.legisSK.setSK(skInMemory)
+    } catch {
+      console.error('[Legis] SK 同步到主进程失败')
+    }
 
     return config
   } catch {

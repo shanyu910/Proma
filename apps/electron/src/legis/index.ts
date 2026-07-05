@@ -30,7 +30,7 @@ export {
 export { modelUsageAtom, fetchModelUsage } from './model/model-usage'
 
 // 渠道同步
-export { OFFICIAL_CHANNEL_ID, resolveApiKey } from './model/channel-sync'
+export { OFFICIAL_CHANNEL_ID } from './model/channel-sync'
 
 // 用户配置
 export { legisConfigAtom, loadLegisConfig, updateSelectedModels, updateDefaultModel } from './config/legis-config'

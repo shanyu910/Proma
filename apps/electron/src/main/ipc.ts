@@ -155,6 +155,8 @@ import {
   handleSecureTokenGet,
   handleSecureTokenSet,
   handleSecureTokenClear,
+  handleSetSK,
+  handleClearSK,
 } from '../legis/secure/auth-secure-storage'
 import { setBuiltinMcpUserEnabled } from './lib/builtin-mcp/settings'
 import { setDockBadgeCount } from './lib/dock-badge-service'
@@ -4360,4 +4362,8 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('auth-secure:get-token', handleSecureTokenGet)
   ipcMain.handle('auth-secure:set-token', (_event, token: string) => handleSecureTokenSet(_event, token))
   ipcMain.handle('auth-secure:clear-token', handleSecureTokenClear)
+
+  // ===== Legis SK 内存存储（仅内存，不写磁盘） =====
+  ipcMain.handle('legis:set-sk', (_event, sk: string) => handleSetSK(_event, sk))
+  ipcMain.handle('legis:clear-sk', handleClearSK)
 }

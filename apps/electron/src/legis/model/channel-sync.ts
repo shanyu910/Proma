@@ -2,7 +2,9 @@
  * model-config → channels.json 同步
  *
  * 把 /auth/me/model-config 返回的 provider 信息包装成"官方渠道"写入 channels.json。
- * apiKey 字段写占位符（真 SK 仅内存），由 Chat/Agent 调模型前替换。
+ * 同时禁用所有旧渠道，并切换默认渠道为官方渠道。
+ *
+ * apiKey 字段写占位符（真 SK 存主进程内存），由 channel-manager 的 decryptApiKey 替换。
  */
 
 import type { ModelConfig } from '../types'
@@ -10,16 +12,16 @@ import type { ModelConfig } from '../types'
 /** 官方渠道固定 ID */
 export const OFFICIAL_CHANNEL_ID = 'legis-official'
 
-/** channels.json 里 apiKey 的占位符（真 SK 在 model-config.ts 的模块级变量里） */
+/** channels.json 里 apiKey 的占位符（真 SK 在主进程内存） */
 export const SK_PLACEHOLDER = '__LEGIS_INJECT__'
 
 /**
  * 把 model-config 同步到 channels.json
  *
- * 策略：
- * - 如果已有 OFFICIAL_CHANNEL_ID 渠道，更新它（保留用户模型勾选状态）
- * - 如果没有，追加一个
- * - apiKey 永远写占位符，真 SK 仅内存
+ * 完整策略：
+ * 1. 创建/更新 Legis 官方渠道（apiKey 写占位符）
+ * 2. 禁用所有非官方渠道（enabled = false），用户无法切回旧渠道
+ * 3. 更新 settings.json：agentChannelId 切到官方渠道
  *
  * @param config model-config 响应数据
  */
@@ -31,82 +33,68 @@ export async function syncModelConfigToChannels(config: ModelConfig): Promise<vo
   try {
     // 读现有渠道
     const channels = await window.electronAPI.listChannels()
-    const existingIndex = channels.findIndex((c) => c.id === OFFICIAL_CHANNEL_ID)
 
-    // 构造官方渠道数据
-    const officialChannel = {
-      id: OFFICIAL_CHANNEL_ID,
-      name: 'Legis 官方',
-      provider: 'anthropic' as const,
-      baseUrl: config.provider.baseUrl,
-      apiKey: SK_PLACEHOLDER,
-      models: config.provider.models.map((m) => ({
-        id: m.id,
-        name: m.name,
-        enabled: true,
-        source: 'fetched' as const,
-      })),
+    // ---- 步骤 1：创建/更新官方渠道 ----
+    const existingOfficial = channels.find((c) => c.id === OFFICIAL_CHANNEL_ID)
+    const officialModels = config.provider.models.map((m) => ({
+      id: m.id,
+      name: m.name,
       enabled: true,
-      createdAt: existingIndex >= 0 ? channels[existingIndex]!.createdAt : Date.now(),
-      updatedAt: Date.now(),
-    }
+      source: 'fetched' as const,
+    }))
 
-    if (existingIndex >= 0) {
-      // 更新（保留用户是否启用各模型的偏好——通过 models enabled 字段）
-      const oldChannel = channels[existingIndex]!
+    // 保留用户旧的模型勾选偏好
+    if (existingOfficial) {
       const oldModelEnabledMap = new Map(
-        oldChannel.models.map((m) => [m.id, m.enabled]),
+        existingOfficial.models.map((m) => [m.id, m.enabled]),
       )
-
-      // 用新的模型列表，但保留用户旧的 enabled 偏好
-      officialChannel.models = officialChannel.models.map((m) => ({
-        ...m,
-        enabled: oldModelEnabledMap.get(m.id) ?? true,
-      }))
-
-      channels[existingIndex] = { ...oldChannel, ...officialChannel }
-    } else {
-      channels.push(officialChannel)
+      officialModels.forEach((m) => {
+        m.enabled = oldModelEnabledMap.get(m.id) ?? true
+      })
     }
 
-    // 用 createChannel/updateChannel 走 IPC（触发持久化）
-    // 但这两个接口会加密 apiKey——SK_PLACEHOLDER 是占位符，加密也没关系
-    if (existingIndex >= 0) {
+    if (existingOfficial) {
+      // 更新官方渠道（不更新 apiKey，保留占位符）
       await window.electronAPI.updateChannel(OFFICIAL_CHANNEL_ID, {
-        name: officialChannel.name,
-        baseUrl: officialChannel.baseUrl,
-        apiKey: '', // 空字符串表示不更新 apiKey
-        models: officialChannel.models,
+        name: 'Legis 官方',
+        baseUrl: config.provider.baseUrl,
+        apiKey: '',
+        models: officialModels,
         enabled: true,
       })
     } else {
+      // 创建官方渠道
       await window.electronAPI.createChannel({
-        name: officialChannel.name,
-        provider: officialChannel.provider,
-        baseUrl: officialChannel.baseUrl,
+        name: 'Legis 官方',
+        provider: 'anthropic',
+        baseUrl: config.provider.baseUrl,
         apiKey: SK_PLACEHOLDER,
-        models: officialChannel.models,
+        models: officialModels,
         enabled: true,
       })
     }
+
+    // ---- 步骤 2：禁用所有非官方渠道 ----
+    for (const channel of channels) {
+      if (channel.id !== OFFICIAL_CHANNEL_ID && channel.enabled) {
+        await window.electronAPI.updateChannel(channel.id, {
+          enabled: false,
+        })
+      }
+    }
+
+    // ---- 步骤 3：切换默认渠道为官方渠道 ----
+    // 更新 settings.json 的 agentChannelId / agentChannelIds
+    const settings = await window.electronAPI.getSettings()
+    await window.electronAPI.updateSettings({
+      agentChannelId: OFFICIAL_CHANNEL_ID,
+      agentChannelIds: [OFFICIAL_CHANNEL_ID],
+      // 如果当前默认模型不在新模型列表里，用服务端推荐模型
+      agentModelId: config.provider.models.some((m) => m.id === settings.agentModelId)
+        ? settings.agentModelId
+        : config.provider.selectedModel,
+    })
   } catch (error) {
     console.error('[Legis] 同步 model-config 到 channels.json 失败:', error)
   }
-}
-
-/**
- * 解析渠道的 apiKey：如果是占位符，替换为内存中的真实 SK
- *
- * Chat/Agent 调模型前调用此函数。
- *
- * @param channelApiKey 渠道的 apiKey 字段值
- * @returns 真实 SK 或原值
- */
-export function resolveApiKey(channelApiKey: string): string {
-  if (channelApiKey === SK_PLACEHOLDER) {
-    // 从 model-config.ts 的模块级变量获取（通过延迟 import 避免循环依赖）
-    const { getSK } = require('./model-config')
-    return getSK() || ''
-  }
-  return channelApiKey
 }

@@ -70,7 +70,7 @@ export function AuthInitializer(): ReactElement | null {
       } else {
         // Token 无效，清除
         await clearStoredToken()
-        clearSK()
+        await clearSK()
         store.set(authStatusAtom, 'guest')
         store.set(authUserAtom, null)
       }

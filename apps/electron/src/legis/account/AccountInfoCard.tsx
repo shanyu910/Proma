@@ -46,7 +46,7 @@ export function AccountInfoCard(): ReactElement {
 
   const handleLogout = async (): Promise<void> => {
     await clearStoredToken()
-    clearSK()
+    await clearSK()
     // 重置 atoms（通过 store 直接设置）
     store.set(authStatusAtom, 'guest')
     store.set(authUserAtom, null)

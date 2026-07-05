@@ -295,9 +295,18 @@ export function deleteChannel(id: string): void {
 }
 
 /**
+ * Legis 官方渠道的 SK 占位符（真 SK 存主进程内存，见 auth-secure-storage.ts）
+ *
+ * channels.json 里官方渠道的 apiKey 字段存这个占位符（加密后），
+ * decryptApiKey 检测到占位符时返回主进程内存中的真实 SK。
+ */
+const LEGIS_SK_PLACEHOLDER = '__LEGIS_INJECT__'
+
+/**
  * 解密渠道的 API Key
  *
  * 仅在用户需要查看时调用。
+ * Legis 官方渠道的 apiKey 是占位符，返回主进程内存中的真实 SK。
  */
 export function decryptApiKey(channelId: string): string {
   const config = readConfig()
@@ -307,7 +316,18 @@ export function decryptApiKey(channelId: string): string {
     throw new Error(`渠道不存在: ${channelId}`)
   }
 
-  return decryptKey(channel.apiKey)
+  // Legis 官方渠道：apiKey 是占位符，返回主进程内存中的真实 SK
+  const decrypted = decryptKey(channel.apiKey)
+  if (decrypted === LEGIS_SK_PLACEHOLDER) {
+    const { getSKInMemory } = require('../../legis/secure/auth-secure-storage')
+    const sk = getSKInMemory()
+    if (!sk) {
+      throw new Error('Legis 官方渠道 SK 未加载，请重新登录')
+    }
+    return sk
+  }
+
+  return decrypted
 }
 
 /**

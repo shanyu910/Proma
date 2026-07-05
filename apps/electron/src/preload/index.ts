@@ -1044,6 +1044,12 @@ export interface ElectronAPI {
     setToken: (token: string) => Promise<void>
     clearToken: () => Promise<void>
   }
+
+  // ===== Legis SK 内存存储（仅内存，不写磁盘） =====
+  legisSK: {
+    setSK: (sk: string) => Promise<void>
+    clearSK: () => Promise<void>
+  }
 }
 
 interface MigrationExportResult {
@@ -2386,6 +2392,12 @@ const electronAPI: ElectronAPI = {
     getToken: () => ipcRenderer.invoke('auth-secure:get-token'),
     setToken: (token: string) => ipcRenderer.invoke('auth-secure:set-token', token),
     clearToken: () => ipcRenderer.invoke('auth-secure:clear-token'),
+  },
+
+  // ===== Legis SK 内存存储（仅内存，不写磁盘） =====
+  legisSK: {
+    setSK: (sk: string) => ipcRenderer.invoke('legis:set-sk', sk),
+    clearSK: () => ipcRenderer.invoke('legis:clear-sk'),
   },
 }
 

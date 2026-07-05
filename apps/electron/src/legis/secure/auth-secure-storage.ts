@@ -14,6 +14,40 @@ import { safeStorage } from 'electron'
 let cachedToken: string | null = null
 let cacheLoaded = false
 
+// ---- SK（API Key）内存存储 ----
+
+/**
+ * 当前 SK（AgentSkill API Key），仅存主进程内存。
+ *
+ * 由渲染进程登录后通过 IPC 'legis:set-sk' 注入。
+ * 主进程的 decryptApiKey 检测到渠道 apiKey 为占位符时，返回此变量。
+ * App 退出/登出时置 null（绝不写磁盘）。
+ */
+let skInMemory: string | null = null
+
+/**
+ * 设置 SK（渲染进程通过 IPC 调用）
+ */
+export function handleSetSK(_: unknown, sk: string): void {
+  skInMemory = sk || null
+}
+
+/**
+ * 清除 SK（退出登录时调用）
+ */
+export function handleClearSK(): void {
+  skInMemory = null
+}
+
+/**
+ * 获取当前 SK（供主进程 decryptApiKey 调用）
+ *
+ * 这是同步函数，不走 IPC handler——直接被主进程内部代码调用。
+ */
+export function getSKInMemory(): string | null {
+  return skInMemory
+}
+
 /**
  * 读取 Token（从 Keychain 解密）
  *
