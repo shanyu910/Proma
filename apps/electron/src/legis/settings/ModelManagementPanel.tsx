@@ -124,8 +124,10 @@ export function ModelManagementPanel(): ReactElement {
   const handleRefresh = async (): Promise<void> => {
     setRefreshing(true)
     const token = await getStoredToken()
+    console.log('[Legis] 刷新余额: token =', token ? `${token.slice(0, 20)}...` : 'null')
     if (token) {
       const usage = await fetchModelUsage(token)
+      console.log('[Legis] 刷新余额: usage =', usage ? JSON.stringify(usage).slice(0, 100) : 'null')
       if (usage) {
         setModelUsage(usage)
       }
