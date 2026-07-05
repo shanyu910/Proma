@@ -6,8 +6,9 @@
  */
 
 import * as React from 'react'
-import { useAtom } from 'jotai'
+import { useAtom, useSetAtom } from 'jotai'
 import { Camera, ImagePlus, Volume2 } from 'lucide-react'
+import { authUserAtom, getStoredToken, updateProfile } from '../../../legis'
 import Picker from '@emoji-mart/react'
 import data from '@emoji-mart/data'
 import {
@@ -59,6 +60,7 @@ interface EmojiMartEmoji {
 
 export function GeneralSettings(): React.ReactElement {
   const [userProfile, setUserProfile] = useAtom(userProfileAtom)
+  const setAuthUser = useSetAtom(authUserAtom)
   const [notificationsEnabled, setNotificationsEnabled] = useAtom(notificationsEnabledAtom)
   const [notificationSoundEnabled, setNotificationSoundEnabled] = useAtom(notificationSoundEnabledAtom)
   const [notificationSounds, setNotificationSounds] = useAtom(notificationSoundsAtom)
@@ -113,15 +115,28 @@ export function GeneralSettings(): React.ReactElement {
     e.target.value = ''
   }
 
-  /** 保存用户名 */
+  /** 保存用户名（本地 + 同步到服务端） */
   const handleSaveName = async (): Promise<void> => {
     const trimmed = nameInput.trim()
     if (!trimmed) return
 
     try {
+      // 1. 存本地（原逻辑）
       const updated = await window.electronAPI.updateUserProfile({ userName: trimmed })
       setUserProfile(updated)
       setIsEditingName(false)
+
+      // 2. 同步到服务端
+      const token = await getStoredToken()
+      if (token) {
+        const result = await updateProfile(token, trimmed)
+        if (result.success && result.user) {
+          // 更新认证用户信息
+          setAuthUser(result.user)
+        } else {
+          console.error('[通用设置] 同步用户名到服务端失败:', result.error)
+        }
+      }
     } catch (error) {
       console.error('[通用设置] 更新用户名失败:', error)
     }

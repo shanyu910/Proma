@@ -51,6 +51,13 @@ export function AuthInitializer(): ReactElement | null {
         store.set(authStatusAtom, 'authenticated')
         store.set(authUserAtom, result.user)
 
+        // 用服务端 fullName 同步本地 userProfile
+        try {
+          await window.electronAPI.updateUserProfile({ userName: result.user.fullName })
+        } catch {
+          // 非关键路径，忽略
+        }
+
         // 拉取 model-config（SK + 模型列表）
         const modelConfig = await fetchModelConfigData(token)
         if (cancelled) return

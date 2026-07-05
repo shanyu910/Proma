@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, jest } from 'bun:test'
-import { login, checkSession, changePassword, getServerUrl } from './auth-api'
+import { login, checkSession, changePassword, getServerUrl, updateProfile } from './auth-api'
 
 // Mock fetch（用 jest.fn 获取 mock.calls）
 const fetchMock = jest.fn((_url: string, _opts?: RequestInit) => Promise.resolve(new Response()))
@@ -189,5 +189,64 @@ describe('changePassword - 修改密码', () => {
     const body = JSON.parse(fetchMock.mock.calls[0]![1]!.body as string)
     expect(body.currentPassword).toBe('old123')
     expect(body.newPassword).toBe('new456')
+  })
+})
+
+describe('updateProfile - 修改个人资料（姓名）', () => {
+  test('Given 有效 Token + 新姓名 When 修改 Then 返回 success + 更新后的 user', async () => {
+    const mockUser = {
+      id: 5,
+      email: 'test@example.com',
+      fullName: '张三丰',
+      isAdmin: false,
+      status: 'active',
+      mustChangePassword: false,
+      createdAt: '2026-06-01T00:00:00Z',
+      updatedAt: '2026-07-06T00:00:00Z',
+    }
+    mockFetchSuccess({ success: true, data: mockUser })
+
+    const result = await updateProfile('token', '张三丰')
+
+    expect(result.success).toBe(true)
+    expect(result.user?.fullName).toBe('张三丰')
+  })
+
+  test('Given 空白姓名 When 修改 Then 返回服务端错误', async () => {
+    mockFetchSuccess({ success: false, error: '姓名不能为空' })
+
+    const result = await updateProfile('token', '   ')
+
+    expect(result.success).toBe(false)
+    expect(result.error).toBe('姓名不能为空')
+  })
+
+  test('Given 网络异常 When 修改 Then 返回连接失败提示', async () => {
+    mockFetchThrow()
+
+    const result = await updateProfile('token', '新名字')
+
+    expect(result.success).toBe(false)
+    expect(result.error).toBe('无法连接服务器，请检查网络')
+  })
+
+  test('Given 姓名含首尾空格 When 修改 Then 发送的 fullName 被 trim', async () => {
+    mockFetchSuccess({ success: true, data: {} as never })
+
+    await updateProfile('token', '  张三  ')
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1]!.body as string)
+    expect(body.fullName).toBe('张三')
+  })
+
+  test('Given 修改请求 When 检查 fetch 参数 Then 使用 POST + Authorization header', async () => {
+    mockFetchSuccess({ success: true, data: {} as never })
+
+    await updateProfile('my-token', '李四')
+
+    const [url, opts] = fetchMock.mock.calls[0]!
+    expect(url).toContain('/auth/me/profile')
+    expect(opts?.method).toBe('POST')
+    expect(opts?.headers).toMatchObject({ Authorization: 'Bearer my-token' })
   })
 })

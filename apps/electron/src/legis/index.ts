@@ -15,8 +15,9 @@ export {
   authStatusAtom,
   authUserAtom,
   clearStoredToken,
+  getStoredToken,
 } from './auth/auth-state'
-export { changePassword } from './auth/auth-api'
+export { changePassword, updateProfile } from './auth/auth-api'
 
 // 账号弹出菜单（供侧边栏使用）
 export { AccountMenu } from './account/AccountMenu'

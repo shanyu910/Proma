@@ -141,3 +141,40 @@ export async function changePassword(
 export function getServerUrl(): string {
   return SERVER_URL
 }
+
+/**
+ * 修改个人资料（姓名）
+ *
+ * 对接 POST /auth/me/profile。
+ * 仅支持修改 fullName，不需要当前密码二次校验。
+ * 成功后返回更新后的完整用户信息。
+ *
+ * @param token Bearer Token
+ * @param fullName 新姓名（去首尾空白后不能为空）
+ * @returns 成功含更新后的 user，失败含 error 文案
+ */
+export async function updateProfile(
+  token: string,
+  fullName: string,
+): Promise<{ success: boolean; user?: LegisUser; error?: string }> {
+  try {
+    const res = await fetch(`${SERVER_URL}/auth/me/profile`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ fullName: fullName.trim() }),
+    })
+
+    const json: MeResponse = await res.json()
+
+    if (json.success && json.data) {
+      return { success: true, user: json.data }
+    }
+
+    return { success: false, error: json.error || '修改失败' }
+  } catch {
+    return { success: false, error: '无法连接服务器，请检查网络' }
+  }
+}
