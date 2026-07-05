@@ -151,7 +151,7 @@ import { extractTextFromAttachment } from './lib/document-parser'
 import { getTutorialContent, createWelcomeConversation } from './lib/tutorial-service'
 import { getUserProfile, updateUserProfile } from './lib/user-profile-service'
 import { getSettings, updateSettings } from './lib/settings-service'
-import { upsertOfficialChannel } from './lib/channel-manager'
+import { upsertOfficialChannel, updateOfficialChannelModelSelection } from './lib/channel-manager'
 import {
   handleSecureTokenGet,
   handleSecureTokenSet,
@@ -4371,5 +4371,10 @@ export function registerIpcHandlers(): void {
   // ===== Legis 官方渠道同步（用固定 ID，不走 createChannel 的 UUID） =====
   ipcMain.handle('legis:upsert-official-channel', (_event, input) => {
     return upsertOfficialChannel(input)
+  })
+
+  // ===== Legis 模型勾选同步（更新官方渠道的 model.enabled） =====
+  ipcMain.handle('legis:update-model-selection', (_event, selectedModelIds: string[]) => {
+    updateOfficialChannelModelSelection(selectedModelIds)
   })
 }

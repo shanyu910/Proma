@@ -42,6 +42,22 @@ export function ModelManagementPanel(): ReactElement {
   const selectedModelIds = config.selectedModelIds
   const defaultModelId = config.defaultModelId
 
+  // 首次加载：如果 legisConfig 的勾选为空，从渠道的 model.enabled 初始化
+  useEffect(() => {
+    if (selectedModelIds.length === 0 && availableModels.length > 0) {
+      // 读渠道的 enabled 状态作为初始值
+      void window.electronAPI.listChannels().then((channels) => {
+        const official = channels.find((c) => c.id === 'legis-official')
+        if (official) {
+          const enabledIds = official.models.filter((m) => m.enabled).map((m) => m.id)
+          if (enabledIds.length > 0) {
+            setConfig(updateSelectedModels(config, enabledIds))
+          }
+        }
+      })
+    }
+  }, [availableModels.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // 未登录：提示登录
   if (status !== 'authenticated') {
     return (
@@ -73,23 +89,23 @@ export function ModelManagementPanel(): ReactElement {
     )
   }
 
-  // 模型勾选切换
+  // 模型勾选切换（同时同步到渠道的 model.enabled）
   const toggleModel = (modelId: string): void => {
     const isSelected = selectedModelIds.includes(modelId)
     const newSelection = isSelected
       ? selectedModelIds.filter((id) => id !== modelId)
       : [...selectedModelIds, modelId]
     setConfig(updateSelectedModels(config, newSelection))
+    // 同步到渠道（ModelSelector 读的是 channel.models[].enabled）
+    void window.electronAPI.legisChannel.updateModelSelection(newSelection)
   }
 
   // 全选/全不选
   const allSelected = availableModels.length > 0 && availableModels.every((m) => selectedModelIds.includes(m.id))
   const toggleAll = (): void => {
-    if (allSelected) {
-      setConfig(updateSelectedModels(config, []))
-    } else {
-      setConfig(updateSelectedModels(config, availableModels.map((m) => m.id)))
-    }
+    const newSelection = allSelected ? [] : availableModels.map((m) => m.id)
+    setConfig(updateSelectedModels(config, newSelection))
+    void window.electronAPI.legisChannel.updateModelSelection(newSelection)
   }
 
   // 刷新余额

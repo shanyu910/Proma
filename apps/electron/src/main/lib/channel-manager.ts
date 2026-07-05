@@ -852,3 +852,31 @@ export function upsertOfficialChannel(input: UpsertOfficialChannelInput): string
 export function getOfficialChannelId(): string {
   return LEGIS_OFFICIAL_CHANNEL_ID
 }
+
+/**
+ * 更新 Legis 官方渠道的模型勾选状态
+ *
+ * 用户在"模型管理"页勾选/取消勾选模型时调用，
+ * 同步到 channels.json 的 model.enabled 字段，
+ * 这样 ModelSelector（读 channel.models[].enabled）才能正确显示。
+ *
+ * @param selectedModelIds 用户勾选的模型 ID 列表
+ */
+export function updateOfficialChannelModelSelection(selectedModelIds: string[]): void {
+  const config = readConfig()
+  const channel = config.channels.find((c) => c.id === LEGIS_OFFICIAL_CHANNEL_ID)
+
+  if (!channel) {
+    console.warn('[Legis] 官方渠道不存在，无法更新模型勾选')
+    return
+  }
+
+  const selectedSet = new Set(selectedModelIds)
+  channel.models = channel.models.map((m) => ({
+    ...m,
+    enabled: selectedSet.has(m.id),
+  }))
+  channel.updatedAt = Date.now()
+
+  writeConfig(config)
+}

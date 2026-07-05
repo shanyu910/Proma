@@ -1058,6 +1058,8 @@ export interface ElectronAPI {
       models: { id: string; name: string; enabled: boolean }[]
       selectedModelId: string
     }) => Promise<string>
+    /** 更新模型勾选状态（同步到 channel.models[].enabled） */
+    updateModelSelection: (selectedModelIds: string[]) => Promise<void>
   }
 }
 
@@ -2412,6 +2414,8 @@ const electronAPI: ElectronAPI = {
   // ===== Legis 官方渠道同步 =====
   legisChannel: {
     upsertOfficial: (input) => ipcRenderer.invoke('legis:upsert-official-channel', input),
+    updateModelSelection: (selectedModelIds: string[]) =>
+      ipcRenderer.invoke('legis:update-model-selection', selectedModelIds),
   },
 }
 
