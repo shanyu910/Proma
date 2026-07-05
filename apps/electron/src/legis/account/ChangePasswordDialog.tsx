@@ -92,7 +92,7 @@ export function ChangePasswordDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[340px] p-5 gap-3" aria-describedby={undefined}>
+      <DialogContent className="max-w-[260px] p-5 gap-3" aria-describedby={undefined}>
         {success ? (
           <div className="text-center py-4">
             <div className="text-xl mb-1">✓</div>
