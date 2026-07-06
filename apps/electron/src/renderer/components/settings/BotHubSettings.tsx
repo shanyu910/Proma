@@ -20,7 +20,8 @@ import { PromaLogoSettings } from './PromaLogoSettings'
 import feishuLogo from '@/assets/bots/feishu.png'
 import dingtalkLogo from '@/assets/bots/dingding.png'
 import wechatLogo from '@/assets/bots/wechat.png'
-import promaLogo from '@/assets/models/proma.png'
+// Legis 品牌定制：「品牌素材」入口已隐藏（旧条纹设计与 Legis 蓝 L 不一致）
+// import promaLogo from '@/assets/models/proma.png'
 
 // ===== 类型 =====
 
@@ -65,12 +66,13 @@ const PLATFORMS: readonly BotPlatformDef[] = [
     iconBgClass: 'bg-muted',
     iconTextClass: 'text-muted-foreground',
   },
-  {
-    id: 'logos',
-    name: '品牌素材',
-    iconSrc: promaLogo,
-    iconBgClass: 'bg-muted',
-  },
+  // Legis 品牌定制：隐藏「品牌素材」入口（旧条纹设计与 Legis 蓝 L 不一致）
+  // {
+  //   id: 'logos',
+  //   name: '品牌素材',
+  //   iconSrc: promaLogo,
+  //   iconBgClass: 'bg-muted',
+  // },
 ] as const
 
 /** 连接状态颜色映射 */

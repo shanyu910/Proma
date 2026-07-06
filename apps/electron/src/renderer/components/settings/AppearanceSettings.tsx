@@ -293,7 +293,8 @@ export function AppearanceSettings(): React.ReactElement {
         </SettingsCard>
       </SettingsSection>
 
-      <AppIconPicker />
+      {/* Legis 品牌定制：禁用应用图标切换器，统一使用 Legis 蓝 L 图标 */}
+      {false && <AppIconPicker />}
     </div>
   )
 }
