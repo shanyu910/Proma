@@ -48,6 +48,12 @@ jobs:
       - name: 安装依赖
         run: bun install --frozen-lockfile
 
+      # 注入生产环境配置（.env 被 gitignore，CI 显式创建）
+      - name: 写入生产环境 .env
+        run: |
+          echo "VITE_LEGIS_SERVER_URL=http://14.103.216.135:31006" > apps/electron/.env
+          echo "→ CI 构建使用生产环境地址"
+
       # macOS 代码签名准备
       - name: 导入 macOS 签名证书
         env:
@@ -125,6 +131,12 @@ jobs:
 
       - name: 安装依赖
         run: bun install --frozen-lockfile
+
+      # 注入生产环境配置（.env 被 gitignore，CI 显式创建）
+      - name: 写入生产环境 .env
+        run: |
+          echo "VITE_LEGIS_SERVER_URL=http://14.103.216.135:31006" > apps/electron/.env
+          echo "→ CI 构建使用生产环境地址"
 
       # macOS 代码签名准备
       - name: 导入 macOS 签名证书
@@ -261,6 +273,12 @@ jobs:
 
       - name: 安装依赖
         run: bun install --frozen-lockfile
+
+      # 注入生产环境配置（.env 被 gitignore，CI 显式创建）
+      - name: 写入生产环境 .env
+        run: |
+          echo "VITE_LEGIS_SERVER_URL=http://14.103.216.135:31006" > apps/electron/.env
+          echo "→ CI 构建使用生产环境地址"
 
       # 构建应用
       - name: 构建 Electron 应用
