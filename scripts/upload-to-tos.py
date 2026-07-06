@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-TOS 原生 API 上传脚本（不走 S3 兼容协议）
+TOS 上传脚本（使用火山引擎官方 ve-tos SDK）
 
-用 curl 子进程上传（比 urllib 更稳定，支持重试，处理大文件更好）
+CI 在运行时通过 pip install ve-tos 安装依赖。
 
 用法：
   python3 upload-to-tos.py <本地目录> <TOS上传路径前缀> <文件glob模式...>
@@ -17,79 +17,12 @@ TOS 原生 API 上传脚本（不走 S3 兼容协议）
 import sys
 import os
 import glob
-import hashlib
-import hmac
-import base64
-import datetime
-import subprocess
-import time
-from urllib.parse import quote
 
-
-def sign_v2(method, bucket, key, access_key, secret_key, region, content_type=''):
-    """生成 TOS 原生 API 的 HMAC-SHA1 签名（AWS Signature Version 2 兼容）"""
-    host = f"{bucket}.tos-{region}.volces.com"
-    url = f"https://{host}/{quote(key)}"
-
-    date = datetime.datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
-    # CanonicalString: METHOD\nContent-MD5\nContent-Type\nDate\nCanonicalizedAmzHeaders\nCanonicalizedResource
-    string_to_sign = f"{method}\n\n{content_type}\n{date}\nx-tos-acl:public-read\n/{bucket}/{quote(key)}"
-    signature = base64.b64encode(
-        hmac.new(secret_key.encode(), string_to_sign.encode(), hashlib.sha1).digest()
-    ).decode()
-
-    return url, {
-        'Date': date,
-        'x-tos-acl': 'public-read',
-        'Authorization': f'TOS {access_key}:{signature}',
-    }
-
-
-def upload_with_curl(local_path, url, headers, max_retries=3):
-    """用 curl 上传文件，支持重试"""
-    curl_headers = []
-    for k, v in headers.items():
-        curl_headers.extend(['-H', f'{k}: {v}'])
-
-    cmd = [
-        'curl', '-sS', '-X', 'PUT',
-        '--retry', str(max_retries),
-        '--retry-delay', '5',
-        '--retry-all-errors',
-        '--connect-timeout', '30',
-        '--max-time', '600',
-        '-w', '\\n%{http_code}',
-        '-T', local_path,
-    ] + curl_headers + [url]
-
-    for attempt in range(1, max_retries + 1):
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=650)
-            output = result.stdout.strip()
-            # 最后一行是 http_code
-            lines = output.rsplit('\n', 1)
-            if len(lines) == 2:
-                body, code_str = lines
-            else:
-                body, code_str = '', lines[0]
-
-            if code_str == '200':
-                return True, f"HTTP 200"
-            else:
-                err = body[:200] if body else result.stderr[:200]
-                if attempt < max_retries:
-                    print(f"  ⚠️  尝试 {attempt}/{max_retries} 失败 (HTTP {code_str})，重试中...")
-                    time.sleep(5 * attempt)
-                else:
-                    return False, f"HTTP {code_str}: {err}"
-        except subprocess.TimeoutExpired:
-            if attempt < max_retries:
-                print(f"  ⚠️  尝试 {attempt}/{max_retries} 超时，重试中...")
-                time.sleep(5 * attempt)
-            else:
-                return False, "上传超时"
-
-    return False, "重试次数用完"
+try:
+    import tos
+except ImportError:
+    print("❌ 缺少 ve-tos 包，请先运行: pip install ve-tos")
+    sys.exit(1)
 
 
 def main():
@@ -105,13 +38,11 @@ def main():
     secret_key = os.environ.get('TOS_SECRET_KEY', '')
     bucket = os.environ.get('TOS_BUCKET', 'legis')
     region = os.environ.get('TOS_REGION', 'cn-beijing')
+    endpoint = f'tos-{region}.volces.com'
 
     if not access_key or not secret_key:
         print("❌ 缺少 TOS_ACCESS_KEY 或 TOS_SECRET_KEY 环境变量")
         sys.exit(1)
-
-    # 确认 curl 可用
-    subprocess.run(['curl', '--version'], capture_output=True, check=True)
 
     # 收集待上传文件
     files_to_upload = []
@@ -128,22 +59,39 @@ def main():
         size_mb = os.path.getsize(f) / 1024 / 1024
         print(f"  {os.path.basename(f)} ({size_mb:.1f} MB)")
 
+    # 初始化 TOS 客户端（火山引擎官方 SDK）
+    auth = tos.Auth(access_key, secret_key, region)
+    client = tos.TosClient(auth, endpoint)
+
     # 上传
     success = 0
     failed = 0
     for local_path in files_to_upload:
         filename = os.path.basename(local_path)
         remote_key = f"{remote_prefix}/{filename}" if remote_prefix else filename
-        url, headers = sign_v2('PUT', bucket, remote_key, access_key, secret_key, region)
-
         size_mb = os.path.getsize(local_path) / 1024 / 1024
+
         print(f"\n→ 上传 {filename} ({size_mb:.1f} MB)...", flush=True)
-        ok, msg = upload_with_curl(local_path, url, headers)
-        if ok:
+        try:
+            # 大文件（>5MB）用文件流避免内存爆掉
+            with open(local_path, 'rb') as f:
+                client.put_object(
+                    Bucket=bucket,
+                    Key=remote_key,
+                    Body=f,
+                    ACL='public-read',
+                    ContentType='application/octet-stream',
+                )
             print(f"  ✅ 成功")
             success += 1
-        else:
-            print(f"  ❌ 失败: {msg}")
+        except tos.exceptions.TosClientError as e:
+            print(f"  ❌ 客户端错误: {e}")
+            failed += 1
+        except tos.exceptions.TosServerError as e:
+            print(f"  ❌ 服务器错误: code={e.code} message={e.message} request_id={e.request_id}")
+            failed += 1
+        except Exception as e:
+            print(f"  ❌ 异常: {type(e).__name__}: {e}")
             failed += 1
 
     print(f"\n=== 结果：{success} 成功，{failed} 失败 ===")

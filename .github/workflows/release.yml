@@ -99,12 +99,13 @@ jobs:
           done
         working-directory: apps/electron
 
-      # 上传到火山引擎 TOS（用 Python 脚本走 TOS 原生 API，避免 S3 兼容协议的权限问题）
+      # 上传到火山引擎 TOS（用官方 ve-tos SDK，签名 100% 正确）
       - name: 上传到 TOS (macOS arm64)
         env:
           TOS_ACCESS_KEY: ${{ secrets.TOS_ACCESS_KEY }}
           TOS_SECRET_KEY: ${{ secrets.TOS_SECRET_KEY }}
         run: |
+          pip install tos
           python3 ../../scripts/upload-to-tos.py out releases/ "*.dmg" "*-mac.zip" "*.blockmap" "latest-mac.yml"
         working-directory: apps/electron
 
@@ -185,6 +186,7 @@ jobs:
           TOS_ACCESS_KEY: ${{ secrets.TOS_ACCESS_KEY }}
           TOS_SECRET_KEY: ${{ secrets.TOS_SECRET_KEY }}
         run: |
+          pip install tos
           python3 ../../scripts/upload-to-tos.py out releases/ "*.dmg" "*-mac.zip" "*.blockmap"
         working-directory: apps/electron
 
@@ -245,7 +247,8 @@ jobs:
           echo "=== Merged latest-mac.yml ==="
           cat latest-mac.yml
 
-          # 上传合并后的 latest-mac.yml（用 Python 脚本走 TOS 原生 API）
+          # 安装 ve-tos 并上传合并后的 latest-mac.yml
+          pip install tos
           TOS_ACCESS_KEY="${{ secrets.TOS_ACCESS_KEY }}" \
           TOS_SECRET_KEY="${{ secrets.TOS_SECRET_KEY }}" \
           python3 scripts/upload-to-tos.py . releases/ "latest-mac.yml"
@@ -294,5 +297,6 @@ jobs:
           TOS_SECRET_KEY: ${{ secrets.TOS_SECRET_KEY }}
         shell: bash
         run: |
+          pip install tos
           python3 ../../scripts/upload-to-tos.py out releases/ "*.exe" "latest.yml"
         working-directory: apps/electron
