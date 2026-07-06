@@ -165,26 +165,10 @@ export function ModelManagementPanel(): ReactElement {
         </div>
 
         {usage && (
-          <>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-foreground">
-                ${usage.balanceUsd.toFixed(2)}
-              </span>
-              <span className="text-sm text-muted-foreground">
-                / ${usage.quotaUsd.toFixed(2)}
-              </span>
+          <div className="space-y-2">
+            <div className="text-2xl font-bold text-foreground">
+              ${usage.balanceUsd.toFixed(2)}
             </div>
-
-            {/* 进度条 */}
-            <div className="h-2 rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full bg-primary transition-all"
-                style={{
-                  width: `${usage.quotaUsd > 0 ? (usage.balanceUsd / usage.quotaUsd) * 100 : 0}%`,
-                }}
-              />
-            </div>
-
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>已用 ${usage.usedUsd.toFixed(2)}</span>
               <button
@@ -195,7 +179,7 @@ export function ModelManagementPanel(): ReactElement {
                 购买余量
               </button>
             </div>
-          </>
+          </div>
         )}
       </div>
 
