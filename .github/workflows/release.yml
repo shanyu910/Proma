@@ -99,30 +99,14 @@ jobs:
           done
         working-directory: apps/electron
 
-      # 上传到火山引擎 TOS
+      # 上传到火山引擎 TOS（用 Python 脚本走 TOS 原生 API，避免 S3 兼容协议的权限问题）
       - name: 上传到 TOS (macOS arm64)
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.TOS_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.TOS_SECRET_KEY }}
+          TOS_ACCESS_KEY: ${{ secrets.TOS_ACCESS_KEY }}
+          TOS_SECRET_KEY: ${{ secrets.TOS_SECRET_KEY }}
         run: |
-          set -euxo pipefail
-          # 确认 aws-cli 可用
-          which aws && aws --version
-          # 列出待上传文件（确认构建产物存在）
-          echo "=== 待上传文件 ==="
-          ls -lh apps/electron/out/*.dmg apps/electron/out/*-mac.zip apps/electron/out/latest-mac.yml 2>&1 || echo "部分文件不存在"
-          # 上传到 TOS（用 --no-progress 避免日志刷屏）
-          aws s3 cp apps/electron/out/ s3://legis/releases/ \
-            --region cn-beijing --endpoint-url https://tos-s3-cn-beijing.volces.com \
-            --acl public-read \
-            --recursive \
-            --no-progress \
-            --exclude "*" \
-            --include "*.dmg" \
-            --include "*-mac.zip" \
-            --include "*.blockmap" \
-            --include "latest-mac.yml"
-          echo "✅ arm64 上传完成"
+          python3 ../../scripts/upload-to-tos.py out releases/ "*.dmg" "*-mac.zip" "*.blockmap" "latest-mac.yml"
+        working-directory: apps/electron
 
   build-mac-x64:
     name: build (macos-15-intel, mac, x64, --x64)
@@ -195,26 +179,14 @@ jobs:
           done
         working-directory: apps/electron
 
-      # 上传到火山引擎 TOS
+      # 上传到火山引擎 TOS（Python 脚本走 TOS 原生 API）
       - name: 上传到 TOS (macOS x64)
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.TOS_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.TOS_SECRET_KEY }}
+          TOS_ACCESS_KEY: ${{ secrets.TOS_ACCESS_KEY }}
+          TOS_SECRET_KEY: ${{ secrets.TOS_SECRET_KEY }}
         run: |
-          set -euxo pipefail
-          which aws && aws --version
-          echo "=== 待上传文件 ==="
-          ls -lh apps/electron/out/*.dmg apps/electron/out/*-mac.zip 2>&1 || echo "部分文件不存在"
-          aws s3 cp apps/electron/out/ s3://legis/releases/ \
-            --region cn-beijing --endpoint-url https://tos-s3-cn-beijing.volces.com \
-            --acl public-read \
-            --recursive \
-            --no-progress \
-            --exclude "*" \
-            --include "*.dmg" \
-            --include "*-mac.zip" \
-            --include "*.blockmap"
-          echo "✅ x64 上传完成"
+          python3 ../../scripts/upload-to-tos.py out releases/ "*.dmg" "*-mac.zip" "*.blockmap"
+        working-directory: apps/electron
 
   # 合并 latest-mac.yml：下载两个架构的 zip，计算 sha512，生成统一清单
   merge-mac-yml:
@@ -231,21 +203,18 @@ jobs:
           set -euxo pipefail
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#v}"
-          TOS_ENDPOINT="--region cn-beijing --endpoint-url https://tos-s3-cn-beijing.volces.com"
-          TOS_BUCKET="s3://legis/releases"
+          TOS_BASE="https://legis.tos-cn-beijing.volces.com/releases"
 
-          # electron-builder 默认产物命名规则：{productName}-{version}-{arch}-mac.zip
-          # arm64: Legis-0.0.1-arm64-mac.zip
-          # x64:   Legis-0.0.1-mac.zip（x64 不带架构后缀）
+          # electron-builder 默认产物命名规则
           ARM64_ZIP="Legis-${VERSION}-arm64-mac.zip"
           X64_ZIP="Legis-${VERSION}-mac.zip"
 
           echo "ARM64 ZIP: $ARM64_ZIP"
           echo "X64 ZIP: $X64_ZIP"
 
-          # 下载两个 zip 计算 sha512
-          aws s3 cp $TOS_BUCKET/$ARM64_ZIP arm64.zip $TOS_ENDPOINT --no-progress
-          aws s3 cp $TOS_BUCKET/$X64_ZIP x64.zip $TOS_ENDPOINT --no-progress
+          # 下载两个 zip（公有读 bucket 直接 curl）
+          curl -fSL -o arm64.zip "${TOS_BASE}/${ARM64_ZIP}"
+          curl -fSL -o x64.zip "${TOS_BASE}/${X64_ZIP}"
 
           ARM64_SHA=$(openssl dgst -sha512 -binary arm64.zip | base64 -w0)
           ARM64_SIZE=$(stat --format=%s arm64.zip)
@@ -276,8 +245,10 @@ jobs:
           echo "=== Merged latest-mac.yml ==="
           cat latest-mac.yml
 
-          # 上传合并后的 latest-mac.yml（覆盖单架构版本）
-          aws s3 cp latest-mac.yml $TOS_BUCKET/latest-mac.yml $TOS_ENDPOINT --acl public-read
+          # 上传合并后的 latest-mac.yml（用 Python 脚本走 TOS 原生 API）
+          TOS_ACCESS_KEY="${{ secrets.TOS_ACCESS_KEY }}" \
+          TOS_SECRET_KEY="${{ secrets.TOS_SECRET_KEY }}" \
+          python3 scripts/upload-to-tos.py . releases/ "latest-mac.yml"
           echo "✅ latest-mac.yml merged and uploaded to TOS"
 
   build-windows-x64:
@@ -316,23 +287,12 @@ jobs:
         run: npx electron-builder --win --x64 --publish never
         working-directory: apps/electron
 
-      # 上传到火山引擎 TOS（Windows，用 bash 兼容写法）
+      # 上传到火山引擎 TOS（Python 脚本走 TOS 原生 API，跨平台兼容）
       - name: 上传到 TOS (Windows)
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.TOS_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.TOS_SECRET_KEY }}
+          TOS_ACCESS_KEY: ${{ secrets.TOS_ACCESS_KEY }}
+          TOS_SECRET_KEY: ${{ secrets.TOS_SECRET_KEY }}
         shell: bash
         run: |
-          set -euxo pipefail
-          which aws && aws --version
-          echo "=== 待上传文件 ==="
-          ls -lh apps/electron/out/*.exe apps/electron/out/latest.yml 2>&1 || echo "部分文件不存在"
-          aws s3 cp apps/electron/out/ s3://legis/releases/ \
-            --region cn-beijing --endpoint-url https://tos-s3-cn-beijing.volces.com \
-            --acl public-read \
-            --recursive \
-            --no-progress \
-            --exclude "*" \
-            --include "*.exe" \
-            --include "latest.yml"
-          echo "✅ Windows 上传完成"
+          python3 ../../scripts/upload-to-tos.py out releases/ "*.exe" "latest.yml"
+        working-directory: apps/electron
