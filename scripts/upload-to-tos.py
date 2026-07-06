@@ -20,8 +20,17 @@ import glob
 
 try:
     import tos
-except ImportError:
-    print("❌ 缺少 ve-tos 包，请先运行: pip install ve-tos")
+    print(f"✅ tos 包导入成功，版本: {getattr(tos, '__version__', '未知')}")
+except ImportError as e:
+    print(f"❌ tos 包导入失败(ImportError): {e}")
+    print(f"   Python: {sys.version}")
+    import subprocess
+    subprocess.run([sys.executable, '-m', 'pip', 'list'])
+    sys.exit(1)
+except Exception as e:
+    print(f"❌ tos 包初始化异常: {type(e).__name__}: {e}")
+    import traceback
+    traceback.print_exc()
     sys.exit(1)
 
 
