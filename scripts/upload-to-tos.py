@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-TOS 原生 API 上传脚本（不走 S3 兼容协议，纯 Python 标准库）
+TOS 原生 API 上传脚本（不走 S3 兼容协议）
+
+用 curl 子进程上传（比 urllib 更稳定，支持重试，处理大文件更好）
 
 用法：
   python3 upload-to-tos.py <本地目录> <TOS上传路径前缀> <文件glob模式...>
@@ -10,9 +12,6 @@ TOS 原生 API 上传脚本（不走 S3 兼容协议，纯 Python 标准库）
   TOS_SECRET_KEY - 火山引擎 AccessKey Secret
   TOS_BUCKET     - bucket 名（默认 legis）
   TOS_REGION     - 区域（默认 cn-beijing）
-
-示例：
-  python3 upload-to-tos.py apps/electron/out releases/ "*.dmg" "*.zip" "latest-mac.yml"
 """
 
 import sys
@@ -22,50 +21,75 @@ import hashlib
 import hmac
 import base64
 import datetime
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError
+import subprocess
+import time
 from urllib.parse import quote
 
 
-def sign_and_upload(local_path, bucket, remote_key, access_key, secret_key, region):
-    """用 TOS 原生签名（AWS V2 兼容）上传单个文件"""
+def sign_v2(method, bucket, key, access_key, secret_key, region, content_type=''):
+    """生成 TOS 原生 API 的 HMAC-SHA1 签名（AWS Signature Version 2 兼容）"""
     host = f"{bucket}.tos-{region}.volces.com"
-    url = f"https://{host}/{quote(remote_key)}"
+    url = f"https://{host}/{quote(key)}"
 
-    with open(local_path, 'rb') as f:
-        data = f.read()
-
-    # 签名（AWS Signature V2 兼容，TOS 原生支持）
     date = datetime.datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
-    string_to_sign = f"PUT\n\n\n{date}\nx-tos-acl:public-read\n/{bucket}/{quote(remote_key)}"
+    # CanonicalString: METHOD\nContent-MD5\nContent-Type\nDate\nCanonicalizedAmzHeaders\nCanonicalizedResource
+    string_to_sign = f"{method}\n\n{content_type}\n{date}\nx-tos-acl:public-read\n/{bucket}/{quote(key)}"
     signature = base64.b64encode(
         hmac.new(secret_key.encode(), string_to_sign.encode(), hashlib.sha1).digest()
     ).decode()
 
-    req = Request(
-        url,
-        data=data,
-        method='PUT',
-        headers={
-            'Date': date,
-            'x-tos-acl': 'public-read',
-            'Authorization': f'TOS {access_key}:{signature}',
-        }
-    )
+    return url, {
+        'Date': date,
+        'x-tos-acl': 'public-read',
+        'Authorization': f'TOS {access_key}:{signature}',
+    }
 
-    try:
-        with urlopen(req, timeout=300) as resp:
-            if resp.status == 200:
-                size_mb = len(data) / 1024 / 1024
-                print(f"✅ {os.path.basename(local_path)} ({size_mb:.1f} MB)")
-                return True
+
+def upload_with_curl(local_path, url, headers, max_retries=3):
+    """用 curl 上传文件，支持重试"""
+    curl_headers = []
+    for k, v in headers.items():
+        curl_headers.extend(['-H', f'{k}: {v}'])
+
+    cmd = [
+        'curl', '-sS', '-X', 'PUT',
+        '--retry', str(max_retries),
+        '--retry-delay', '5',
+        '--retry-all-errors',
+        '--connect-timeout', '30',
+        '--max-time', '600',
+        '-w', '\\n%{http_code}',
+        '-T', local_path,
+    ] + curl_headers + [url]
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=650)
+            output = result.stdout.strip()
+            # 最后一行是 http_code
+            lines = output.rsplit('\n', 1)
+            if len(lines) == 2:
+                body, code_str = lines
             else:
-                print(f"❌ {os.path.basename(local_path)}: HTTP {resp.status}")
-                return False
-    except HTTPError as e:
-        body = e.read().decode('utf-8', errors='replace')[:300]
-        print(f"❌ {os.path.basename(local_path)}: HTTP {e.code} {body}")
-        return False
+                body, code_str = '', lines[0]
+
+            if code_str == '200':
+                return True, f"HTTP 200"
+            else:
+                err = body[:200] if body else result.stderr[:200]
+                if attempt < max_retries:
+                    print(f"  ⚠️  尝试 {attempt}/{max_retries} 失败 (HTTP {code_str})，重试中...")
+                    time.sleep(5 * attempt)
+                else:
+                    return False, f"HTTP {code_str}: {err}"
+        except subprocess.TimeoutExpired:
+            if attempt < max_retries:
+                print(f"  ⚠️  尝试 {attempt}/{max_retries} 超时，重试中...")
+                time.sleep(5 * attempt)
+            else:
+                return False, "上传超时"
+
+    return False, "重试次数用完"
 
 
 def main():
@@ -85,6 +109,9 @@ def main():
     if not access_key or not secret_key:
         print("❌ 缺少 TOS_ACCESS_KEY 或 TOS_SECRET_KEY 环境变量")
         sys.exit(1)
+
+    # 确认 curl 可用
+    subprocess.run(['curl', '--version'], capture_output=True, check=True)
 
     # 收集待上传文件
     files_to_upload = []
@@ -107,9 +134,16 @@ def main():
     for local_path in files_to_upload:
         filename = os.path.basename(local_path)
         remote_key = f"{remote_prefix}/{filename}" if remote_prefix else filename
-        if sign_and_upload(local_path, bucket, remote_key, access_key, secret_key, region):
+        url, headers = sign_v2('PUT', bucket, remote_key, access_key, secret_key, region)
+
+        size_mb = os.path.getsize(local_path) / 1024 / 1024
+        print(f"\n→ 上传 {filename} ({size_mb:.1f} MB)...", flush=True)
+        ok, msg = upload_with_curl(local_path, url, headers)
+        if ok:
+            print(f"  ✅ 成功")
             success += 1
         else:
+            print(f"  ❌ 失败: {msg}")
             failed += 1
 
     print(f"\n=== 结果：{success} 成功，{failed} 失败 ===")
