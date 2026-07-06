@@ -18,17 +18,22 @@ import sys
 import os
 import glob
 
+# 强制 stdout 用 UTF-8（Windows 默认 cp1252 不支持中文/emoji）
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ('utf-8', 'utf8'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 try:
     import tos
-    print(f"✅ tos 包导入成功，版本: {getattr(tos, '__version__', '未知')}")
+    print(f"[OK] tos 包导入成功，版本: {getattr(tos, '__version__', '未知')}")
 except ImportError as e:
-    print(f"❌ tos 包导入失败(ImportError): {e}")
+    print(f"[FAIL] tos 包导入失败(ImportError): {e}")
     print(f"   Python: {sys.version}")
     import subprocess
     subprocess.run([sys.executable, '-m', 'pip', 'list'])
     sys.exit(1)
 except Exception as e:
-    print(f"❌ tos 包初始化异常: {type(e).__name__}: {e}")
+    print(f"[FAIL] tos 包初始化异常: {type(e).__name__}: {e}")
     import traceback
     traceback.print_exc()
     sys.exit(1)
@@ -50,7 +55,7 @@ def main():
     endpoint = f'tos-{region}.volces.com'
 
     if not access_key or not secret_key:
-        print("❌ 缺少 TOS_ACCESS_KEY 或 TOS_SECRET_KEY 环境变量")
+        print("[FAIL] 缺少 TOS_ACCESS_KEY 或 TOS_SECRET_KEY 环境变量")
         sys.exit(1)
 
     # 收集待上传文件
@@ -60,7 +65,7 @@ def main():
         files_to_upload.extend(f for f in matched if os.path.isfile(f))
 
     if not files_to_upload:
-        print(f"⚠️  目录 {local_dir} 中未找到匹配 {patterns} 的文件")
+        print(f"[!]  目录 {local_dir} 中未找到匹配 {patterns} 的文件")
         sys.exit(1)
 
     print(f"=== 待上传 {len(files_to_upload)} 个文件 ===")
@@ -80,7 +85,7 @@ def main():
         remote_key = f"{remote_prefix}/{filename}" if remote_prefix else filename
         size_mb = os.path.getsize(local_path) / 1024 / 1024
 
-        print(f"\n→ 上传 {filename} ({size_mb:.1f} MB)...", flush=True)
+        print(f"\n-> 上传 {filename} ({size_mb:.1f} MB)...", flush=True)
         try:
             # 大文件（>5MB）用文件流避免内存爆掉
             with open(local_path, 'rb') as f:
@@ -91,16 +96,16 @@ def main():
                     ACL='public-read',
                     ContentType='application/octet-stream',
                 )
-            print(f"  ✅ 成功")
+            print(f"  [OK] 成功")
             success += 1
         except tos.exceptions.TosClientError as e:
-            print(f"  ❌ 客户端错误: {e}")
+            print(f"  [FAIL] 客户端错误: {e}")
             failed += 1
         except tos.exceptions.TosServerError as e:
-            print(f"  ❌ 服务器错误: code={e.code} message={e.message} request_id={e.request_id}")
+            print(f"  [FAIL] 服务器错误: code={e.code} message={e.message} request_id={e.request_id}")
             failed += 1
         except Exception as e:
-            print(f"  ❌ 异常: {type(e).__name__}: {e}")
+            print(f"  [FAIL] 异常: {type(e).__name__}: {e}")
             failed += 1
 
     print(f"\n=== 结果：{success} 成功，{failed} 失败 ===")
