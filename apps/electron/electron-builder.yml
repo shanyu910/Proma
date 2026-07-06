@@ -137,10 +137,10 @@ nsis:
 
 # ============================================
 # 发布配置
-# 发布到火山引擎 TOS（对象存储），国内访问快、不依赖 GitHub。
-# electron-builder 构建后用 --publish always 上传到下方 URL。
-# CI 通过 aws-cli（S3 兼容）上传，密钥配置在 GitHub Actions Secrets。
+# 发布到 GitHub Releases（无签名版本）
+# CI 通过 --publish always 自动创建 Release 并上传安装包
 # ============================================
 publish:
-  provider: generic
-  url: https://legis.tos-cn-beijing.volces.com/releases/
+  provider: github
+  owner: shanyu910
+  repo: Proma
