@@ -113,7 +113,7 @@ jobs:
           ls -lh apps/electron/out/*.dmg apps/electron/out/*-mac.zip apps/electron/out/latest-mac.yml 2>&1 || echo "部分文件不存在"
           # 上传到 TOS（用 --no-progress 避免日志刷屏）
           aws s3 cp apps/electron/out/ s3://legis/releases/ \
-            --endpoint-url https://tos-s3-cn-beijing.volces.com \
+            --region cn-beijing --endpoint-url https://tos-s3-cn-beijing.volces.com \
             --acl public-read \
             --recursive \
             --no-progress \
@@ -206,7 +206,7 @@ jobs:
           echo "=== 待上传文件 ==="
           ls -lh apps/electron/out/*.dmg apps/electron/out/*-mac.zip 2>&1 || echo "部分文件不存在"
           aws s3 cp apps/electron/out/ s3://legis/releases/ \
-            --endpoint-url https://tos-s3-cn-beijing.volces.com \
+            --region cn-beijing --endpoint-url https://tos-s3-cn-beijing.volces.com \
             --acl public-read \
             --recursive \
             --no-progress \
@@ -231,7 +231,7 @@ jobs:
           set -euxo pipefail
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#v}"
-          TOS_ENDPOINT="--endpoint-url https://tos-s3-cn-beijing.volces.com"
+          TOS_ENDPOINT="--region cn-beijing --endpoint-url https://tos-s3-cn-beijing.volces.com"
           TOS_BUCKET="s3://legis/releases"
 
           # electron-builder 默认产物命名规则：{productName}-{version}-{arch}-mac.zip
@@ -328,7 +328,7 @@ jobs:
           echo "=== 待上传文件 ==="
           ls -lh apps/electron/out/*.exe apps/electron/out/latest.yml 2>&1 || echo "部分文件不存在"
           aws s3 cp apps/electron/out/ s3://legis/releases/ \
-            --endpoint-url https://tos-s3-cn-beijing.volces.com \
+            --region cn-beijing --endpoint-url https://tos-s3-cn-beijing.volces.com \
             --acl public-read \
             --recursive \
             --no-progress \
