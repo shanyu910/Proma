@@ -21,6 +21,7 @@ import { fetchModelConfigData, clearSK, modelConfigAtom, recommendedModelIdAtom 
 import { fetchModelUsage, modelUsageAtom } from '../model/model-usage'
 import { syncModelConfigToChannels } from '../model/channel-sync'
 import { loadLegisConfig, legisConfigAtom } from '../config/legis-config'
+import { refreshStateAfterLogin } from '../model/post-login-refresh'
 
 export function AuthInitializer(): ReactElement | null {
   const store = useStore()
@@ -68,8 +69,13 @@ export function AuthInitializer(): ReactElement | null {
           if (modelConfig.provider?.selectedModel) {
             store.set(recommendedModelIdAtom, modelConfig.provider.selectedModel)
           }
-          // 同步到 channels.json
+          // 同步到 channels.json + settings.json（写磁盘）
           await syncModelConfigToChannels(modelConfig)
+          // 刷新全部相关 atom（channelsAtom + agentChannelIdAtom + legisConfigAtom）
+          // 修复 bug：之前只写磁盘不刷 atom，登录后 AgentView 显示"请选择供应商"、必须重启
+          if (!cancelled) {
+            await refreshStateAfterLogin(store)
+          }
         }
 
         // 拉取余额

@@ -29,6 +29,7 @@ import { ChangePasswordDialog } from '../account/ChangePasswordDialog'
 import { fetchModelConfigData, modelConfigAtom, recommendedModelIdAtom } from '../model/model-config'
 import { fetchModelUsage, modelUsageAtom } from '../model/model-usage'
 import { syncModelConfigToChannels } from '../model/channel-sync'
+import { refreshStateAfterLogin } from '../model/post-login-refresh'
 
 export function LoginModal(): ReactElement {
   const store = useStore()
@@ -87,7 +88,11 @@ export function LoginModal(): ReactElement {
         if (modelConfig.provider?.selectedModel) {
           store.set(recommendedModelIdAtom, modelConfig.provider.selectedModel)
         }
+        // 同步到 channels.json + settings.json（写磁盘）
         await syncModelConfigToChannels(modelConfig)
+        // 刷新全部相关 atom（channelsAtom + agentChannelIdAtom + legisConfigAtom）
+        // 修复 bug：之前只写磁盘不刷 atom，登录后必须重启才能看到模型
+        await refreshStateAfterLogin(store)
       }
 
       const usage = await fetchModelUsage(result.token)

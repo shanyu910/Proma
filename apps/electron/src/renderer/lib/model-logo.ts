@@ -112,6 +112,9 @@ import XiaomiLogo from '@/assets/models/xiaomi.png'
 // Proma
 import PromaLogo from '@/assets/models/proma.png'
 
+// Legis
+import LegisLogo from '@/assets/models/legis.png'
+
 // Cohere
 import CohereLogo from '@/assets/models/cohere.png'
 import CohereDarkLogo from '@/assets/models/cohere_dark.png'
@@ -341,14 +344,22 @@ const GENERIC_PROVIDERS: ReadonlySet<ProviderType> = new Set<ProviderType>([
  * 获取渠道（Channel）的 Logo
  *
  * 识别策略：
- * 1. 明确品牌的 provider 类型（deepseek/openai/google/...）→ 直接信任 provider Logo
- * 2. 泛化类型（anthropic/anthropic-compatible/custom）→ 先按 Base URL 域名识别真实品牌，
+ * 1. Legis 官方渠道（id === 'legis-official'）→ 直接返回 Legis 图标（优先级最高）
+ * 2. 明确品牌的 provider 类型（deepseek/openai/google/...）→ 直接信任 provider Logo
+ * 3. 泛化类型（anthropic/anthropic-compatible/custom）→ 先按 Base URL 域名识别真实品牌，
  *    识别不到再回退到 provider 默认 Logo
  *
  * 这样既能识别「用 Anthropic 协议接入第三方品牌」的渠道，又不会把第三方
  * anthropic-compatible 服务误判为 Claude。
+ *
+ * 注：Legis 官方渠道虽然底层用 Anthropic 协议（provider='anthropic'），
+ * 但产品上是 Legis 自有品牌，必须显示 Legis 图标而非 Claude。
  */
-export function getChannelLogo(channel: { provider: ProviderType; baseUrl: string }): string {
+export function getChannelLogo(channel: { id?: string; provider: ProviderType; baseUrl: string }): string {
+  // Legis 官方渠道特判：显示 Legis 品牌图标，不走 anthropic 泛化逻辑
+  if (channel.id === 'legis-official') {
+    return LegisLogo
+  }
   if (GENERIC_PROVIDERS.has(channel.provider) && channel.baseUrl) {
     for (const [regex, logo] of URL_LOGO_MAP) {
       if (regex.test(channel.baseUrl)) {

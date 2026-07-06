@@ -29,11 +29,28 @@ import { useConversationIdOptional } from '@/contexts/session-context'
 import { getModelLogo, getChannelLogo, DefaultLogo } from '@/lib/model-logo'
 import { cn } from '@/lib/utils'
 import type { Channel, ModelOption } from '@legis/shared'
-import { useAuthGate } from '../../../legis'
+import { useAuthGate, OFFICIAL_CHANNEL_ID } from '../../../legis'
+import { legisConfigAtom } from '../../../legis/config/legis-config'
 
-/** 从渠道列表构建扁平化的模型选项 */
-function buildModelOptions(channels: Channel[], filterChannelId?: string, filterChannelIds?: string[]): ModelOption[] {
+/**
+ * 从渠道列表构建扁平化的模型选项
+ *
+ * 对于 Legis 官方渠道，额外按 legisConfig.selectedModelIds 过滤：
+ * 设置页勾选状态（selectedModelIds，localStorage）和 channel.models[].enabled（channels.json）
+ * 是两个独立数据源，登录同步时如果服务端模型列表变化，enabled 可能被重置为全 true。
+ * 这里以 selectedModelIds 作为最终事实源，保证设置页和对话框显示一致。
+ */
+function buildModelOptions(
+  channels: Channel[],
+  filterChannelId?: string,
+  filterChannelIds?: string[],
+  selectedModelIds?: string[],
+): ModelOption[] {
   const options: ModelOption[] = []
+  // 官方渠道：用 selectedModelIds 做二次过滤（兜底 channel.enabled）
+  const selectedSet = selectedModelIds && selectedModelIds.length > 0
+    ? new Set(selectedModelIds)
+    : null
 
   for (const channel of channels) {
     if (!channel.enabled) continue
@@ -42,6 +59,10 @@ function buildModelOptions(channels: Channel[], filterChannelId?: string, filter
 
     for (const model of channel.models) {
       if (!model.enabled) continue
+      // Legis 官方渠道：以 selectedModelIds 为准，避免登录同步 enabled 重置导致显示全部
+      if (channel.id === OFFICIAL_CHANNEL_ID && selectedSet && !selectedSet.has(model.id)) {
+        continue
+      }
 
       options.push({
         channelId: channel.id,
@@ -102,6 +123,7 @@ export function ModelSelector({
   const channels = useAtomValue(channelsAtom)
   const channelsLoaded = useAtomValue(channelsLoadedAtom)
   const setChannels = useSetAtom(channelsAtom)
+  const legisConfig = useAtomValue(legisConfigAtom)
   const [localOpen, setLocalOpen] = React.useState(false)
   const [sharedOpen, setSharedOpen] = useAtom(modelSelectorOpenAtom)
   const open = useSharedOpenState ? sharedOpen : localOpen
@@ -119,7 +141,10 @@ export function ModelSelector({
     }
   }, [open, setChannels])
 
-  const modelOptions = React.useMemo(() => buildModelOptions(channels, filterChannelId, filterChannelIds), [channels, filterChannelId, filterChannelIds])
+  const modelOptions = React.useMemo(
+    () => buildModelOptions(channels, filterChannelId, filterChannelIds, legisConfig.selectedModelIds),
+    [channels, filterChannelId, filterChannelIds, legisConfig.selectedModelIds],
+  )
   const grouped = React.useMemo(() => groupByChannel(modelOptions), [modelOptions])
 
   // 搜索过滤
