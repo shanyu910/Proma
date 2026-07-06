@@ -110,9 +110,9 @@ jobs:
           which aws && aws --version
           # 列出待上传文件（确认构建产物存在）
           echo "=== 待上传文件 ==="
-          ls -lh apps/electron/dist/*.dmg apps/electron/dist/*-mac.zip apps/electron/dist/latest-mac.yml 2>&1 || echo "部分文件不存在"
+          ls -lh apps/electron/out/*.dmg apps/electron/out/*-mac.zip apps/electron/out/latest-mac.yml 2>&1 || echo "部分文件不存在"
           # 上传到 TOS（用 --no-progress 避免日志刷屏）
-          aws s3 cp apps/electron/dist/ s3://legis/releases/ \
+          aws s3 cp apps/electron/out/ s3://legis/releases/ \
             --endpoint-url https://tos-s3-cn-beijing.volces.com \
             --acl public-read \
             --recursive \
@@ -204,8 +204,8 @@ jobs:
           set -euxo pipefail
           which aws && aws --version
           echo "=== 待上传文件 ==="
-          ls -lh apps/electron/dist/*.dmg apps/electron/dist/*-mac.zip 2>&1 || echo "部分文件不存在"
-          aws s3 cp apps/electron/dist/ s3://legis/releases/ \
+          ls -lh apps/electron/out/*.dmg apps/electron/out/*-mac.zip 2>&1 || echo "部分文件不存在"
+          aws s3 cp apps/electron/out/ s3://legis/releases/ \
             --endpoint-url https://tos-s3-cn-beijing.volces.com \
             --acl public-read \
             --recursive \
@@ -326,8 +326,8 @@ jobs:
           set -euxo pipefail
           which aws && aws --version
           echo "=== 待上传文件 ==="
-          ls -lh apps/electron/dist/*.exe apps/electron/dist/latest.yml 2>&1 || echo "部分文件不存在"
-          aws s3 cp apps/electron/dist/ s3://legis/releases/ \
+          ls -lh apps/electron/out/*.exe apps/electron/out/latest.yml 2>&1 || echo "部分文件不存在"
+          aws s3 cp apps/electron/out/ s3://legis/releases/ \
             --endpoint-url https://tos-s3-cn-beijing.volces.com \
             --acl public-read \
             --recursive \
