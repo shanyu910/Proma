@@ -1,11 +1,10 @@
 {
   "name": "@legis/electron",
-  "version": "0.14.2",
+  "version": "0.0.1",
   "description": "Legis next gen ai software with general agents - Electron App",
   "main": "dist/main.cjs",
   "author": {
-    "name": "ErlichLiu",
-    "email": "erlichliu@gmail.com"
+    "name": "Legis"
   },
   "private": true,
   "type": "module",
