@@ -55,11 +55,12 @@ jobs:
           echo "VITE_LEGIS_SERVER_URL=http://14.103.216.135:31006" > apps/electron/.env
           echo "→ CI 构建使用生产环境地址"
 
-      # macOS 代码签名准备
+      # macOS 代码签名准备（仅在配置了证书时执行）
       - name: 导入 macOS 签名证书
         env:
           MAC_CERTS: ${{ secrets.MAC_CERTS }}
           MAC_CERTS_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+        if: ${{ env.MAC_CERTS != '' }}
         run: |
           # 创建临时 keychain
           KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
@@ -85,6 +86,8 @@ jobs:
       # 打包（不上传，上传统一在 upload 步骤）
       - name: 打包 (macOS arm64)
         env:
+          # 无签名证书时跳过代码签名和公证（用户首次打开需右键→打开）
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.MAC_CERTS && 'true' || 'false' }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -139,11 +142,12 @@ jobs:
           echo "VITE_LEGIS_SERVER_URL=http://14.103.216.135:31006" > apps/electron/.env
           echo "→ CI 构建使用生产环境地址"
 
-      # macOS 代码签名准备
+      # macOS 代码签名准备（仅在配置了证书时执行）
       - name: 导入 macOS 签名证书
         env:
           MAC_CERTS: ${{ secrets.MAC_CERTS }}
           MAC_CERTS_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+        if: ${{ env.MAC_CERTS != '' }}
         run: |
           # 创建临时 keychain
           KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
@@ -169,6 +173,8 @@ jobs:
       # 打包（不上传，上传统一在 upload 步骤）
       - name: 打包 (macOS x64)
         env:
+          # 无签名证书时跳过代码签名和公证（用户首次打开需右键→打开）
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.MAC_CERTS && 'true' || 'false' }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
