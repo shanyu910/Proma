@@ -105,15 +105,24 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.TOS_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TOS_SECRET_KEY }}
         run: |
+          set -euxo pipefail
+          # 确认 aws-cli 可用
+          which aws && aws --version
+          # 列出待上传文件（确认构建产物存在）
+          echo "=== 待上传文件 ==="
+          ls -lh apps/electron/dist/*.dmg apps/electron/dist/*-mac.zip apps/electron/dist/latest-mac.yml 2>&1 || echo "部分文件不存在"
+          # 上传到 TOS（用 --no-progress 避免日志刷屏）
           aws s3 cp apps/electron/dist/ s3://legis/releases/ \
             --endpoint-url https://tos-s3-cn-beijing.volces.com \
             --acl public-read \
             --recursive \
+            --no-progress \
             --exclude "*" \
             --include "*.dmg" \
             --include "*-mac.zip" \
             --include "*.blockmap" \
             --include "latest-mac.yml"
+          echo "✅ arm64 上传完成"
 
   build-mac-x64:
     name: build (macos-15-intel, mac, x64, --x64)
@@ -192,14 +201,20 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.TOS_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TOS_SECRET_KEY }}
         run: |
+          set -euxo pipefail
+          which aws && aws --version
+          echo "=== 待上传文件 ==="
+          ls -lh apps/electron/dist/*.dmg apps/electron/dist/*-mac.zip 2>&1 || echo "部分文件不存在"
           aws s3 cp apps/electron/dist/ s3://legis/releases/ \
             --endpoint-url https://tos-s3-cn-beijing.volces.com \
             --acl public-read \
             --recursive \
+            --no-progress \
             --exclude "*" \
             --include "*.dmg" \
             --include "*-mac.zip" \
             --include "*.blockmap"
+          echo "✅ x64 上传完成"
 
   # 合并 latest-mac.yml：下载两个架构的 zip，计算 sha512，生成统一清单
   merge-mac-yml:
@@ -213,27 +228,32 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.TOS_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TOS_SECRET_KEY }}
         run: |
-          set -euo pipefail
+          set -euxo pipefail
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#v}"
           TOS_ENDPOINT="--endpoint-url https://tos-s3-cn-beijing.volces.com"
           TOS_BUCKET="s3://legis/releases"
 
-          # 列出本次构建的 mac zip 文件
-          ARM64_ZIP=$(aws s3 ls $TOS_BUCKET/ $TOS_ENDPOINT | grep "arm64-mac.zip" | awk '{print $4}' | head -1)
-          X64_ZIP=$(aws s3 ls $TOS_BUCKET/ $TOS_ENDPOINT | grep -E "[^-]mac\.zip" | awk '{print $4}' | head -1)
+          # electron-builder 默认产物命名规则：{productName}-{version}-{arch}-mac.zip
+          # arm64: Legis-0.0.1-arm64-mac.zip
+          # x64:   Legis-0.0.1-mac.zip（x64 不带架构后缀）
+          ARM64_ZIP="Legis-${VERSION}-arm64-mac.zip"
+          X64_ZIP="Legis-${VERSION}-mac.zip"
 
           echo "ARM64 ZIP: $ARM64_ZIP"
           echo "X64 ZIP: $X64_ZIP"
 
           # 下载两个 zip 计算 sha512
-          aws s3 cp $TOS_BUCKET/$ARM64_ZIP arm64.zip $TOS_ENDPOINT
-          aws s3 cp $TOS_BUCKET/$X64_ZIP x64.zip $TOS_ENDPOINT
+          aws s3 cp $TOS_BUCKET/$ARM64_ZIP arm64.zip $TOS_ENDPOINT --no-progress
+          aws s3 cp $TOS_BUCKET/$X64_ZIP x64.zip $TOS_ENDPOINT --no-progress
 
           ARM64_SHA=$(openssl dgst -sha512 -binary arm64.zip | base64 -w0)
           ARM64_SIZE=$(stat --format=%s arm64.zip)
           X64_SHA=$(openssl dgst -sha512 -binary x64.zip | base64 -w0)
           X64_SIZE=$(stat --format=%s x64.zip)
+
+          echo "ARM64: size=${ARM64_SIZE}, sha512=${ARM64_SHA:0:20}..."
+          echo "X64:   size=${X64_SIZE}, sha512=${X64_SHA:0:20}..."
 
           RELEASE_DATE=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
 
@@ -296,17 +316,23 @@ jobs:
         run: npx electron-builder --win --x64 --publish never
         working-directory: apps/electron
 
-      # 上传到火山引擎 TOS（Windows 上用 aws-cli）
+      # 上传到火山引擎 TOS（Windows，用 bash 兼容写法）
       - name: 上传到 TOS (Windows)
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.TOS_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TOS_SECRET_KEY }}
+        shell: bash
         run: |
-          aws s3 cp apps/electron\dist\ s3://legis/releases/ `
-            --endpoint-url https://tos-s3-cn-beijing.volces.com `
-            --acl public-read `
-            --recursive `
-            --exclude "*" `
-            --include "*.exe" `
+          set -euxo pipefail
+          which aws && aws --version
+          echo "=== 待上传文件 ==="
+          ls -lh apps/electron/dist/*.exe apps/electron/dist/latest.yml 2>&1 || echo "部分文件不存在"
+          aws s3 cp apps/electron/dist/ s3://legis/releases/ \
+            --endpoint-url https://tos-s3-cn-beijing.volces.com \
+            --acl public-read \
+            --recursive \
+            --no-progress \
+            --exclude "*" \
+            --include "*.exe" \
             --include "latest.yml"
-        shell: pwsh
+          echo "✅ Windows 上传完成"
