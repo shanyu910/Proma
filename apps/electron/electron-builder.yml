@@ -137,10 +137,10 @@ nsis:
 
 # ============================================
 # 发布配置
-# 每个平台的 build job 通过 --publish always 直接上传到 GitHub Release。
-# electron-builder 会自动创建/复用 Release，并在多架构并行上传时合并 latest-mac.yml。
+# 发布到火山引擎 TOS（对象存储），国内访问快、不依赖 GitHub。
+# electron-builder 构建后用 --publish always 上传到下方 URL。
+# CI 通过 aws-cli（S3 兼容）上传，密钥配置在 GitHub Actions Secrets。
 # ============================================
 publish:
-  provider: github
-  owner: ErlichLiu
-  repo: Legis-pro
+  provider: generic
+  url: https://legis.tos-cn-beijing.volces.com/releases/

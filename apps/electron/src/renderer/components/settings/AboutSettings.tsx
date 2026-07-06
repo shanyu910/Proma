@@ -29,7 +29,8 @@ import { VersionHistory } from './VersionHistory'
 declare const __APP_VERSION__: string
 const APP_VERSION = __APP_VERSION__
 
-const GITHUB_RELEASES_URL = 'https://github.com/shanyu910/Legis-pro/releases'
+/** 项目仓库（实际 fork） */
+const PROJECT_REPO_URL = 'https://github.com/shanyu910/Proma'
 
 /** 更新状态卡片 */
 function UpdateCard(): React.ReactElement | null {
@@ -53,7 +54,8 @@ function UpdateCard(): React.ReactElement | null {
   }
 
   const handleGoToDownload = (): void => {
-    const url = release?.html_url || GITHUB_RELEASES_URL
+    // 更新检查走 TOS，但下载引导暂时指向项目仓库 Releases
+    const url = release?.html_url || `${PROJECT_REPO_URL}/releases`
     window.electronAPI.openExternal(url)
   }
 
@@ -443,7 +445,7 @@ export function AboutSettings(): React.ReactElement {
   return (
     <SettingsSection
       title="关于 Legis"
-      description="集成通用 AI Agent 的下一代人工智能软件"
+      description="面向法律行业的 AI Agent 桌面应用"
     >
       <SettingsCard>
         <SettingsRow label="版本">
@@ -452,10 +454,7 @@ export function AboutSettings(): React.ReactElement {
         <SettingsRow label="运行时">
           <span className="text-sm text-muted-foreground">Electron + React</span>
         </SettingsRow>
-        <SettingsRow
-          label="开源协议"
-          description="社区版基于 AGPL-3.0 开源，商业授权请联系 erlichliu@gmail.com"
-        >
+        <SettingsRow label="开源协议">
           <a
             href="https://www.gnu.org/licenses/agpl-3.0.html"
             target="_blank"
@@ -467,12 +466,12 @@ export function AboutSettings(): React.ReactElement {
         </SettingsRow>
         <SettingsRow label="项目地址">
           <a
-            href="https://github.com/shanyu910/Legis-pro.git"
+            href={PROJECT_REPO_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-primary hover:underline"
           >
-            github.com/shanyu910/Legis-pro
+            github.com/shanyu910/Proma
           </a>
         </SettingsRow>
       </SettingsCard>
@@ -480,8 +479,9 @@ export function AboutSettings(): React.ReactElement {
       {/* 自动更新卡片（updater 不可用时不渲染） */}
       <UpdateCard />
 
-      {/* 版本历史 */}
-      <VersionHistory />
+      {/* 版本历史（Legis 品牌定制：暂时隐藏，国内用户访问 GitHub API 不稳定，
+          后续如需展示 changelog，应从 TOS 拉取） */}
+      {false && <VersionHistory />}
 
       {/* 环境检测卡片 */}
       <EnvironmentCard />
