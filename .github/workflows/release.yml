@@ -22,6 +22,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:  # 允许手动触发，用于首次启用/调试
 
 permissions:
   contents: write
