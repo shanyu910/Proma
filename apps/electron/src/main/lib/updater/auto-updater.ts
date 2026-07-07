@@ -74,10 +74,22 @@ export function cleanupUpdater(): void {
 /**
  * 初始化自动更新
  *
+ * Legis 品牌定制：暂时禁用后台自动检查。
+ * 原因：国内访问 GitHub 不稳定，启动后 10 秒的 checkForUpdates() 会连
+ * api.github.com，请求挂起 30-60 秒，期间主进程网络栈被占用，导致整个应用卡顿。
+ * 等将来满足以下任一条件再恢复：
+ *   ① 买了代码签名证书（macOS 自动更新需要签名才能安装）
+ *   ② 配好国内镜像（TOS/CDN）替代 GitHub 作为更新源
+ *
+ * 注意：用户在"关于/更新"页主动点"检查更新"按钮仍可用（由 checkForUpdates 触发，
+ * 走 IPC 通道，不在启动时执行）。
+ *
  * @param mainWindow - 主窗口实例，用于推送更新状态
  */
 export function initAutoUpdater(mainWindow: BrowserWindow): void {
+  // 暂存 mainWindow 引用（保留给手动检查更新用）
   win = mainWindow
+  console.log('[更新] 自动更新后台检查已禁用（国内访问 GitHub 会卡顿），用户仍可在"关于"页手动检查')
 
   autoUpdater.logger = {
     info: (...args: unknown[]) => console.log('[更新-updater]', ...args),
@@ -141,17 +153,18 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
     })
   })
 
-  // 启动后延迟 10 秒首次检查
-  setTimeout(() => {
-    console.log('[更新] 首次自动检查更新')
-    checkForUpdates()
-  }, 10_000)
+  // ⚠️ 后台自动检查已禁用（见函数顶部说明）
+  // 启动后延迟 10 秒首次检查（暂时注释，避免国内访问 GitHub 卡顿）
+  // setTimeout(() => {
+  //   console.log('[更新] 首次自动检查更新')
+  //   checkForUpdates()
+  // }, 10_000)
 
-  // 每 4 小时自动检查一次
-  checkInterval = setInterval(() => {
-    console.log('[更新] 定时自动检查更新')
-    checkForUpdates()
-  }, 4 * 60 * 60 * 1000)
+  // 每 4 小时自动检查一次（暂时注释）
+  // checkInterval = setInterval(() => {
+  //   console.log('[更新] 定时自动检查更新')
+  //   checkForUpdates()
+  // }, 4 * 60 * 60 * 1000)
 
   // 窗口关闭时清理定时器
   mainWindow.on('closed', () => {
