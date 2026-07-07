@@ -752,7 +752,7 @@ export class ClaudeAgentAdapter implements AgentProviderAdapter {
         abortController: controller,
         env: options.env,
         systemPrompt: options.systemPrompt,
-        // 不加载 user 级别的 ~/.claude/settings.json
+        // 加载用户级和项目级 SDK settings，排除 local 级别的 .claude/settings.local.json。
         settingSources: ['user', 'project'],
 
         // 条件字段
@@ -907,15 +907,22 @@ export class ClaudeAgentAdapter implements AgentProviderAdapter {
         }
 
         // 捕获 result 中的 contextWindow
+        // 多 entry 场景（Task 子 Agent 等）：取最大 contextWindow 作为分母，
+        // 避免子 Agent 的小窗口覆盖主模型的大窗口、导致 UI 指示器飘忽。
         if (msg.type === 'result') {
           const resultMsg = msg as {
             modelUsage?: Record<string, { contextWindow?: number }>
             terminal_reason?: string
           }
           if (resultMsg.modelUsage) {
-            const firstEntry = Object.values(resultMsg.modelUsage)[0]
-            if (firstEntry?.contextWindow) {
-              options.onContextWindow?.(firstEntry.contextWindow)
+            let bestWindow: number | undefined
+            for (const info of Object.values(resultMsg.modelUsage)) {
+              if (info?.contextWindow && (bestWindow === undefined || info.contextWindow > bestWindow)) {
+                bestWindow = info.contextWindow
+              }
+            }
+            if (bestWindow != null) {
+              options.onContextWindow?.(bestWindow)
             }
           }
           // 被软中断 / 延迟工具 / hook 暂停等场景产生的 result：不关闭通道，

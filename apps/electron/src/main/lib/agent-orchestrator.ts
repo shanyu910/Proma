@@ -27,9 +27,10 @@ import {
   THINKING_SIGNATURE_ERROR_CODE,
   THINKING_SIGNATURE_ERROR_MESSAGE,
   THINKING_SIGNATURE_ERROR_TITLE,
+  isPersistableSDKSystemMessage,
   normalizeMcpTransportType,
 } from '@legis/shared'
-import type { PromaPermissionMode, AskUserRequest, ExitPlanModeRequest } from '@legis/shared'
+import type { PromaPermissionMode, AskUserRequest, ExitPlanModeRequest, SDKSystemMessage } from '@legis/shared'
 import type { ClaudeAgentQueryOptions } from './adapters/claude-agent-adapter'
 import { isPromptTooLongError, isThinkingSignatureError, friendlyErrorMessage, mapSDKErrorToTypedError, extractErrorDetails, shouldKeepChannelOpen } from './adapters/claude-agent-adapter'
 import { isTransientNetworkError, isMalformedResponseError, isSessionNotFoundError } from './error-patterns'
@@ -39,16 +40,18 @@ import { getAdapter, fetchTitle, normalizeAnthropicBaseUrlForSdk, getPromaUserAg
 import pkg from '../../../package.json' with { type: 'json' }
 import { getFetchFn } from './proxy-fetch'
 import { getEffectiveProxyUrl } from './proxy-settings-service'
-import { appendSDKMessages, updateAgentSessionMeta, getAgentSessionMeta, getAgentSessionMessages, getAgentSessionSDKMessages, truncateSDKMessages, resolveUserUuidFromSDK, rewindFilesFromSnapshot } from './agent-session-manager'
+import { appendSDKMessages, updateAgentSessionMeta, getAgentSessionMeta, getAgentSessionMessages, truncateSDKMessages, resolveUserUuidFromSDK, rewindFilesFromSnapshot } from './agent-session-manager'
 import { getAgentWorkspace, getWorkspaceMcpConfig, ensurePluginManifest, getWorkspaceAutoMemoryDir, getWorkspaceAttachedDirectories, getWorkspaceAttachedFiles } from './agent-workspace-manager'
-import { getAgentWorkspacePath, getAgentSessionWorkspacePath, getSdkConfigDir, getWorkspaceFilesDir, getConfigDirName, getBundledCliPath } from './config-paths'
+import { getAgentWorkspacePath, getAgentSessionWorkspacePath, getSdkConfigDir, getWorkspaceFilesDir, getBundledCliPath } from './config-paths'
 import { getRuntimeStatus } from './runtime-init'
 import { getSettings } from './settings-service'
 import { buildSystemPrompt, buildDynamicContext } from './agent-prompt-builder'
+import { MAX_CONTEXT_MESSAGES, buildContextPrompt, buildRecoveryPrompt, buildReferencedSessionsPrompt } from './agent-session-context-prompt'
 import { permissionService } from './agent-permission-service'
 import type { PermissionResult, CanUseToolOptions } from './agent-permission-service'
 import { askUserService } from './agent-ask-user-service'
 import { exitPlanService, type ExitPlanPermissionResult } from './agent-exit-plan-service'
+import { removePromaAutoCompactSettings } from './agent-auto-compact-settings'
 import { applyAgentModelRoutingToEnv, resolveAgentModelRouting } from './agent-model-routing'
 import { validateToolInput } from './agent-tool-input-validator'
 import { estimateTokenCount, WRITE_CONTENT_TOKEN_THRESHOLD } from './agent-tool-token-estimator'
@@ -172,6 +175,9 @@ function isAutoRetryableCatchError(
 /** 最大自动重试次数 */
 const MAX_AUTO_RETRIES = 25
 
+/** 重试可见性阈值：前 N 次重试不通知 UI，避免偶发瞬时波动频繁惊扰用户 */
+const RETRY_VISIBILITY_THRESHOLD = 5
+
 /** 自动重试累计等待预算（毫秒） */
 const MAX_AUTO_RETRY_WAIT_MS = 5 * 60_000
 
@@ -266,198 +272,6 @@ function resolveSDKCliPath(): string {
   }
 
   return binaryPath
-}
-
-/** 最大回填消息条数 */
-const MAX_CONTEXT_MESSAGES = 20
-
-/** 单条工具摘要最大字符数 */
-const MAX_TOOL_SUMMARY_LENGTH = 200
-
-function getSessionHistoryPath(sessionId: string): string {
-  return `~/${getConfigDirName()}/agent-sessions/${sessionId}.jsonl`
-}
-
-function getSessionCliCommandPrefix(): string {
-  return getBundledCliPath() ? '"$LEGIS_CLI"' : 'legis'
-}
-
-function buildSessionCliAccessGuide(sessionId: string, historyPath: string): string {
-  const cli = getSessionCliCommandPrefix()
-  return [
-    `优先使用 Legis CLI 读取清洗后的会话历史，避免直接读取原始 JSONL。`,
-    `命令前缀: ${cli}`,
-    `建议流程:`,
-    `1. ${cli} session info ${sessionId}`,
-    `2. ${cli} session outline ${sessionId}`,
-    `3. 根据 outline/search 定位后，用 ${cli} session export ${sessionId} --turns A-B 或 ${cli} session export ${sessionId} --tail N 读取片段。`,
-    `4. 只有会话很小或 CLI 护栏允许时，才用 ${cli} session export ${sessionId} 读取全量。`,
-    `CLI 不可用时兜底读取原始历史文件: ${historyPath}`,
-  ].join('\n')
-}
-
-function buildSessionInfoBlock(sessionId: string, agentCwd: string): string {
-  const historyPath = getSessionHistoryPath(sessionId)
-  return `\n<session_info>\nSession ID: ${sessionId}\nSession CWD: ${agentCwd}\n` +
-    `${buildSessionCliAccessGuide(sessionId, historyPath)}\n` +
-    `重要：上方仅为最近 ${MAX_CONTEXT_MESSAGES} 条对话摘要，可能不完整。在继续之前，` +
-    `请先使用 Legis CLI 恢复完整上下文，确认「已经完成了哪些工作、进行到哪一步」，` +
-    `然后从中断处继续，切勿重复执行已完成的步骤。\n</session_info>\n`
-}
-
-/**
- * 从 SDKMessage assistant 消息的 content 中提取工具活动摘要
- *
- * 扫描 tool_use 块，提取工具名称和关键参数，帮助新 SDK 会话理解之前做过什么。
- */
-function extractSDKToolSummary(content: Array<{ type: string; name?: string; input?: Record<string, unknown> }>): string {
-  const summaries: string[] = []
-  for (const block of content) {
-    if (block.type === 'tool_use' && block.name) {
-      const input = block.input ?? {}
-      const keyParam = input.file_path ?? input.command ?? input.path ?? input.query ?? ''
-      const paramStr = keyParam ? `: ${String(keyParam).slice(0, 100)}` : ''
-      summaries.push(`[tool: ${block.name}${paramStr}]`)
-    }
-  }
-  if (summaries.length === 0) return ''
-  const joined = summaries.join(' ')
-  return joined.length > MAX_TOOL_SUMMARY_LENGTH
-    ? joined.slice(0, MAX_TOOL_SUMMARY_LENGTH) + '...'
-    : joined
-}
-
-/**
- * 构建带历史上下文的 prompt
- *
- * 当 resume 不可用时，将最近消息拼接为上下文注入 prompt，
- * 让新 SDK 会话保留对话记忆。包含文本内容和工具活动摘要。
- */
-function buildContextPrompt(sessionId: string, currentUserMessage: string, sessionHint?: { agentCwd: string }): string {
-  const allMessages = getAgentSessionSDKMessages(sessionId)
-  if (allMessages.length === 0) return currentUserMessage
-
-  // 排除最后一条（当前用户消息，刚刚才 append 的）
-  const history = allMessages.slice(0, -1)
-  if (history.length === 0) return currentUserMessage
-
-  const recent = history.slice(-MAX_CONTEXT_MESSAGES)
-  const lines = recent
-    .filter((m) => (m.type === 'user' || m.type === 'assistant'))
-    .map((m) => {
-      // 从 SDKMessage 的 message.content 中提取文本
-      const content = (m as { message?: { content?: Array<{ type: string; text?: string; name?: string; input?: Record<string, unknown> }> } }).message?.content
-      if (!Array.isArray(content)) return null
-
-      const textParts = content
-        .filter((b) => b.type === 'text' && b.text)
-        .map((b) => b.text!)
-      const text = textParts.join('\n')
-      if (!text) return null
-
-      let line = `[${m.type}]: ${text}`
-      // assistant 消息附带工具活动摘要
-      if (m.type === 'assistant') {
-        const toolSummary = extractSDKToolSummary(content)
-        if (toolSummary) {
-          line += `\n  工具活动: ${toolSummary}`
-        }
-      }
-      return line
-    })
-    .filter(Boolean)
-
-  if (lines.length === 0) return currentUserMessage
-
-  // 注入 session 元信息 + 强指令：兜底场景（resume 指针丢失）下，仅靠最近
-  // MAX_CONTEXT_MESSAGES 条摘要不足以让长任务无缝接续，必须引导模型先通过 CLI 读取完整历史，
-  // 避免「从零重新执行整个任务」（#903）。
-  const sessionInfoBlock = sessionHint ? buildSessionInfoBlock(sessionId, sessionHint.agentCwd) : ''
-
-  console.log(`[Agent 编排] buildContextPrompt: 读取 ${allMessages.length} 条消息，注入 ${lines.length} 条历史${sessionHint ? '（含 session 元信息）' : ''}`)
-  return `<conversation_history>${sessionInfoBlock}\n${lines.join('\n')}\n</conversation_history>\n\n${currentUserMessage}`
-}
-
-/**
- * 构建 Session 恢复 prompt
- *
- * 当 SDK resume 失败（session 过期、thinking signature 不兼容等）时，
- * 注入 <session_recovery> 标签，指导 Agent 优先用 Legis CLI 读取清洗后的会话历史，
- * 只有 CLI 不可用时才兜底读取原始 JSONL。
- */
-function buildRecoveryPrompt(
-  sessionId: string,
-  currentUserMessage: string,
-  sessionHint: { agentCwd: string },
-): string {
-  const meta = getAgentSessionMeta(sessionId)
-  const title = meta ? escapeContextAttr(meta.title) : sessionId
-  const historyPath = getSessionHistoryPath(sessionId)
-
-  const recoveryBlock =
-    `<session_recovery>\n` +
-    `你正在接续一个已有的 Agent 会话（因模型切换等原因需要重新建立连接）。\n` +
-    `请先使用 Legis CLI 读取清洗后的会话历史以恢复上下文，然后继续处理用户的最新请求。\n` +
-    `<session id="${sessionId}" title="${title}" cwd="${sessionHint.agentCwd}">\n` +
-    `${buildSessionCliAccessGuide(sessionId, historyPath)}\n` +
-    `</session>\n` +
-    `</session_recovery>`
-
-  console.log(`[Agent 编排] buildRecoveryPrompt: 注入 session CLI 恢复指引 → ${sessionId}`)
-  return `${recoveryBlock}\n\n${currentUserMessage}`
-}
-
-function escapeContextAttr(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-}
-
-function buildReferencedSessionsPrompt(
-  currentSessionId: string,
-  mentionedSessionIds?: string[],
-  workspaceId?: string,
-  workspaceSlug?: string,
-): string {
-  const uniqueIds = [...new Set((mentionedSessionIds ?? []).filter(Boolean))]
-  if (uniqueIds.length === 0) return ''
-
-  const currentWorkspaceId = workspaceId ?? getAgentSessionMeta(currentSessionId)?.workspaceId
-  const sessionBlocks: string[] = []
-
-  for (const referencedSessionId of uniqueIds) {
-    if (referencedSessionId === currentSessionId) continue
-
-    const meta = getAgentSessionMeta(referencedSessionId)
-    if (!meta || meta.archived) continue
-    if (currentWorkspaceId && meta.workspaceId !== currentWorkspaceId) continue
-
-    const title = escapeContextAttr(meta.title)
-    const historyPath = getSessionHistoryPath(referencedSessionId)
-    sessionBlocks.push(
-      `<session id="${referencedSessionId}" title="${title}" updatedAt="${meta.updatedAt}">\n` +
-      `CLI target: ${referencedSessionId}\n` +
-      `History path: ${historyPath}\n` +
-      '</session>',
-    )
-  }
-
-  if (sessionBlocks.length === 0) return ''
-
-  // 打包模式下 proma CLI 二进制随 App 分发，可用 session-cleaner skill 读取引用会话：
-  // 默认正常完整读取（export 全量）；仅当会话过大、完整读入会撑爆上下文时，才用搜索 + turn 区间省着读。
-  // 开发模式（getBundledCliPath 返回 undefined，CLI 不可用）回退到原有的 Grep 局部读指引。
-  const cliAvailable = !!getBundledCliPath()
-  if (cliAvailable) {
-    const skillName = workspaceSlug
-      ? `proma-workspace-${workspaceSlug}:session-cleaner`
-      : 'session-cleaner'
-    return `<referenced_sessions>\n用户在消息中明确引用了以下同工作区 Agent 会话。需要这些会话的上下文时，优先使用 Legis CLI（也可以调用 session-cleaner skill：${skillName}，它是 CLI 的薄封装）读取清洗后的会话历史。按 info → outline/search → export 的顺序渐进式读取；不要假设会话内容，也不要直接 Read 原始 .jsonl 历史文件。\n${sessionBlocks.join('\n\n')}\n</referenced_sessions>`
-  }
-
-  return `<referenced_sessions>\n用户在消息中明确引用了以下同工作区 Agent 会话。不要假设这些会话的内容；需要上下文时，请先读取对应的 History path，再基于读取结果继续完成任务。\n\n重要提示：会话历史文件（.jsonl）可能包含大量消息和 tool results，文件较大。请优先使用 Grep 搜索关键词定位相关消息片段，再局部读取。避免一次性 Read 整个大文件。\n${sessionBlocks.join('\n\n')}\n</referenced_sessions>`
 }
 
 /** 标题生成 Prompt */
@@ -575,11 +389,23 @@ export class AgentOrchestrator {
       // 暴露打包进 App 的 proma CLI 路径，供 session-cleaner 等 skill / Agent 调用
       // （开发模式无编译二进制，getBundledCliPath 返回 undefined，此处不注入，
       //   skill 回退到源码运行 bun apps/cli/src/index.ts）。
-      ...(getBundledCliPath() ? { LEGIS_CLI: getBundledCliPath() } : {}),
+      ...(getBundledCliPath()
+        ? {
+            LEGIS_CLI: getBundledCliPath(),
+            PATH: `${dirname(getBundledCliPath()!)}${process.platform === 'win32' ? ';' : ':'}${cleanEnv.PATH ?? ''}`,
+          }
+        : {}),
       // 启用 Tasks 功能
       CLAUDE_CODE_ENABLE_TASKS: 'true',
+      // 禁用 SDK 内置 Workflows，避免每轮注入 workflow 相关提示词。
+      CLAUDE_CODE_DISABLE_WORKFLOWS: '1',
       // 禁用实验性 beta 功能，使用稳定模式
       CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: '1',
+      // 禁用 Tool Search：Claude 模型连接第一方 Anthropic API 时，SDK CLI 会自动启用
+      // Tool Search（optimistic 模式），将外部 MCP 工具标记为 deferred 而非 eager 注册，
+      // 导致 HTTP MCP 服务器（如 Nowledge Mem）的工具无法直接调用。
+      // Proma 自行管理工具呈现和 MCP 连接，不依赖此机制。
+      ENABLE_TOOL_SEARCH: 'false',
       // 禁用 attribution block：SDK 默认会在 system prompt 最前面注入一段
       // 文本（含客户端版本号与基于会话内容计算的指纹），且每次请求都变化。
       // 经第三方 Anthropic 兼容代理/网关中转时，会导致缓存前缀变化、命中率骤降。
@@ -603,6 +429,12 @@ export class AgentOrchestrator {
       sdkEnv.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = '1'
     } else {
       sdkEnv.ANTHROPIC_API_KEY = apiKey
+    }
+
+    // 全局 API 超时保护：防止网络环境变化（代理断开/WiFi 切换等）导致 SDK 子进程的
+    // HTTP 请求无限挂起。MiniMax 有自己的超时值，不覆盖。
+    if (!sdkEnv.API_TIMEOUT_MS) {
+      sdkEnv.API_TIMEOUT_MS = '300000' // 5 分钟
     }
 
     // 显式控制 ANTHROPIC_BASE_URL：仅在用户配置了自定义 Base URL 时注入
@@ -782,6 +614,7 @@ export class AgentOrchestrator {
     queryOptions: ClaudeAgentQueryOptions,
     contextualMessage: string,
     agentCwd: string,
+    workspaceSlug: string | undefined,
     accumulatedMessages: SDKMessage[],
     queryStartedAt: number,
   ): string {
@@ -790,6 +623,7 @@ export class AgentOrchestrator {
       queryOptions,
       contextualMessage,
       agentCwd,
+      workspaceSlug,
       accumulatedMessages,
       queryStartedAt,
       '检测到 session-not-found（可能为误检），保留 sdkSessionId 并切换到上下文回填模式',
@@ -798,8 +632,8 @@ export class AgentOrchestrator {
   }
 
   /**
-   * Resume 失败恢复：本轮切到「非 resume + 读 JSONL 恢复」模式，注入 session 自引用让 Agent
-   * 读取完整历史继续工作。使用 <session_recovery> 标签指向当前会话的 JSONL 历史文件，
+   * Resume 失败恢复：本轮切到「非 resume + 历史回填恢复」模式，注入 session 自引用让 Agent
+   * 优先通过 session-cleaner 读取干净历史继续工作。使用 <session_recovery> 标签指向当前会话，
    * 比 buildContextPrompt（仅注入 20 条摘要）提供完整得多的上下文连续性。
    *
    * 关于磁盘 meta 的 sdkSessionId（由 clearPersistedSession 控制，默认 false 即保留）：
@@ -814,6 +648,7 @@ export class AgentOrchestrator {
     queryOptions: ClaudeAgentQueryOptions,
     contextualMessage: string,
     agentCwd: string,
+    workspaceSlug: string | undefined,
     accumulatedMessages: SDKMessage[],
     queryStartedAt: number,
     logMessage: string,
@@ -831,15 +666,14 @@ export class AgentOrchestrator {
     }
     queryOptions.resumeSessionId = undefined
     queryOptions.resumeSessionAt = undefined
-    queryOptions.prompt = buildRecoveryPrompt(sessionId, contextualMessage, { agentCwd })
+    queryOptions.prompt = buildRecoveryPrompt(sessionId, contextualMessage, { agentCwd, workspaceSlug })
     return retryReason
   }
 
   /**
    * 持久化累积的 SDKMessage（Phase 4: 直接存储原始 SDKMessage）
    *
-   * 只持久化 assistant、user、result 和需要长期可见的 system 消息
-   * （跳过 tool_progress、compacting 等临时消息）。
+   * 只持久化 assistant、user、result 和需要长期可见的 system 消息。
    */
   private persistSDKMessages(
     sessionId: string,
@@ -848,10 +682,20 @@ export class AgentOrchestrator {
   ): void {
     if (accumulatedMessages.length === 0) return
 
+    const hasCompactBoundary = accumulatedMessages.some((m) => {
+      return m.type === 'system' && (m as SDKSystemMessage).subtype === 'compact_boundary'
+    })
+
     const toPersist = accumulatedMessages.filter(
       (m) => m.type === 'assistant' || m.type === 'user' || m.type === 'result'
-        || (m.type === 'system' && ['compact_boundary', 'permission_denied'].includes((m as import('@legis/shared').SDKSystemMessage).subtype ?? ''))
+        || (m.type === 'system' && isPersistableSDKSystemMessage(m as SDKSystemMessage))
     ).filter((m) => {
+      if (m.type === 'system') {
+        const sysMsg = m as SDKSystemMessage
+        if (hasCompactBoundary && sysMsg.subtype === 'status' && sysMsg.compact_result === 'success') {
+          return false
+        }
+      }
       // 过滤 SDK 内部生成的 user 文本消息（如 Skill 展开 prompt），与实时流过滤逻辑一致
       if (m.type === 'user') {
         const content = (m as { message?: { content?: Array<{ type: string }> } }).message?.content
@@ -1183,9 +1027,12 @@ export class AgentOrchestrator {
             needsWrite = true
           }
         }
+        if (removePromaAutoCompactSettings(sdkProjectSettings)) {
+          needsWrite = true
+        }
         if (needsWrite) {
           writeFileSync(settingsPath, JSON.stringify(sdkProjectSettings, null, 2))
-          console.log(`[Agent 编排] 已设置 SDK settings (plansDirectory, skipWebFetchPreflight, autoMemoryDirectory)`)
+          console.log(`[Agent 编排] 已设置 SDK settings (plansDirectory, skipWebFetchPreflight, autoMemoryDirectory, autoCompact)`)
         }
       }
 
@@ -1257,7 +1104,7 @@ export class AgentOrchestrator {
         ? '/compact'
         : existingSdkSessionId
           ? contextualMessage
-          : buildContextPrompt(sessionId, contextualMessage, { agentCwd })
+          : buildContextPrompt(sessionId, contextualMessage, { agentCwd, workspaceSlug })
 
       if (existingSdkSessionId) {
         console.log(`[Agent 编排] 使用 resume 模式，SDK session ID: ${existingSdkSessionId}`)
@@ -1592,6 +1439,7 @@ export class AgentOrchestrator {
       let retrySucceeded = false
       let skipNextRetryDelay = false
       let thinkingSignatureRecoveryAttempted = false
+      let promptTooLongRecoveryAttempted = false
       let invisibleRecoveryAttempts = 0
       const canAutoRetry = (attempt: number): boolean =>
         attempt <= MAX_AUTO_RETRIES && retryDelayElapsedMs < MAX_AUTO_RETRY_WAIT_MS
@@ -1600,6 +1448,10 @@ export class AgentOrchestrator {
       let capturedSdkSessionId = existingSdkSessionId
       const canTryThinkingSignatureRecovery = (attempt: number): boolean =>
         !thinkingSignatureRecoveryAttempted &&
+        canAutoRetry(attempt) &&
+        !!(existingSdkSessionId || capturedSdkSessionId || queryOptions.resumeSessionId)
+      const canTryPromptTooLongRecovery = (attempt: number): boolean =>
+        !promptTooLongRecoveryAttempted &&
         canAutoRetry(attempt) &&
         !!(existingSdkSessionId || capturedSdkSessionId || queryOptions.resumeSessionId)
 
@@ -1629,16 +1481,19 @@ export class AgentOrchestrator {
               delaySeconds: delaySec,
             }
 
-            this.eventBus.emit(sessionId, {
-              kind: 'proma_event',
-              event: { type: 'retry', status: 'starting', attempt: retryAttempt, maxAttempts: MAX_AUTO_RETRIES, delaySeconds: delaySec, reason: lastRetryableError ?? '未知错误' },
-            })
-            this.eventBus.emit(sessionId, {
-              kind: 'proma_event',
-              event: { type: 'retry', status: 'attempt', attemptData },
-            })
+            // 前 RETRY_VISIBILITY_THRESHOLD 次重试静默进行，避免偶发瞬时波动频繁惊扰用户
+            if (retryAttempt > RETRY_VISIBILITY_THRESHOLD) {
+              this.eventBus.emit(sessionId, {
+                kind: 'proma_event',
+                event: { type: 'retry', status: 'starting', attempt: retryAttempt, maxAttempts: MAX_AUTO_RETRIES, delaySeconds: delaySec, reason: lastRetryableError ?? '未知错误' },
+              })
+              this.eventBus.emit(sessionId, {
+                kind: 'proma_event',
+                event: { type: 'retry', status: 'attempt', attemptData },
+              })
+            }
 
-            console.log(`[Agent 编排] 第 ${retryAttempt} 次重试，等待 ${delaySec}s...`)
+            console.log(`[Agent 编排] 第 ${retryAttempt} 次重试${retryAttempt <= RETRY_VISIBILITY_THRESHOLD ? '(静默)' : ''}，等待 ${delaySec}s...`)
             await new Promise((r) => setTimeout(r, delayMs))
 
             // 等待期间如果会话被中止，退出
@@ -1747,7 +1602,7 @@ export class AgentOrchestrator {
                   skipNextRetryDelay = true
                   existingSdkSessionId = undefined
                   capturedSdkSessionId = undefined
-                  lastRetryableError = this.prepareSessionNotFoundRecovery(sessionId, queryOptions, contextualMessage, agentCwd, accumulatedMessages, queryStartedAt)
+                  lastRetryableError = this.prepareSessionNotFoundRecovery(sessionId, queryOptions, contextualMessage, agentCwd, workspaceSlug, accumulatedMessages, queryStartedAt)
                   stderrChunks.length = 0
                   shouldRetryFromError = true
                   break
@@ -1769,11 +1624,40 @@ export class AgentOrchestrator {
                     queryOptions,
                     contextualMessage,
                     agentCwd,
+                    workspaceSlug,
                     accumulatedMessages,
                     queryStartedAt,
                     '检测到 thinking signature 不兼容，清除 sdkSessionId 并切换到上下文回填模式',
                     '思考签名不兼容，切换到上下文回填模式',
                     true,  // 跨模型签名不兼容是唯一确定永久无效的场景，清除磁盘 sdkSessionId
+                  )
+                  stderrChunks.length = 0
+                  shouldRetryFromError = true
+                  break
+                }
+
+                // 上下文过长：旧 SDK session 已经处于不可继续的超限状态。
+                // 自动清除 resume 指针，改用 Proma 最近历史回填重跑一次；用于飞书/自动任务等无人值守入口自恢复。
+                if (
+                  typedError.code === 'prompt_too_long' &&
+                  canTryPromptTooLongRecovery(attempt)
+                ) {
+                  promptTooLongRecoveryAttempted = true
+                  invisibleRecoveryAttempts += 1
+                  existingSdkSessionId = undefined
+                  capturedSdkSessionId = undefined
+                  skipNextRetryDelay = true
+                  lastRetryableError = this.prepareResumeFallbackRecovery(
+                    sessionId,
+                    queryOptions,
+                    contextualMessage,
+                    agentCwd,
+                    workspaceSlug,
+                    accumulatedMessages,
+                    queryStartedAt,
+                    '检测到上下文过长，清除 sdkSessionId 并切换到上下文回填模式',
+                    '上下文过长，切换到上下文回填模式',
+                    true,
                   )
                   stderrChunks.length = 0
                   shouldRetryFromError = true
@@ -1797,6 +1681,9 @@ export class AgentOrchestrator {
 
                 // 不可重试 → 终止
                 this.persistSDKMessages(sessionId, accumulatedMessages, Date.now() - queryStartedAt)
+                if (typedError.code === 'prompt_too_long') {
+                  try { updateAgentSessionMeta(sessionId, { sdkSessionId: undefined }) } catch { /* 忽略 */ }
+                }
 
                 const errorContent = typedError.title
                     ? `${typedError.title}: ${typedError.message}`
@@ -1818,8 +1705,8 @@ export class AgentOrchestrator {
                 appendSDKMessages(sessionId, [errorSDKMsg])
                 console.log(`[Agent 编排] 已保存 TypedError 消息: ${typedError.code} - ${typedError.title}`)
 
-                // 如果之前有重试记录，发送 retry_failed
-                if (retryAttemptsScheduled > 0 && lastRetryableError) {
+                // 如果之前有可见重试记录，发送 retry_failed
+                if (retryAttemptsScheduled > RETRY_VISIBILITY_THRESHOLD && lastRetryableError) {
                   this.eventBus.emit(sessionId, {
                     kind: 'proma_event',
                     event: { type: 'retry', status: 'failed', attemptData: { attempt: retryAttemptsScheduled, timestamp: Date.now(), reason: lastRetryableError, errorMessage: typedError.message, delaySeconds: 0 } },
@@ -1837,7 +1724,7 @@ export class AgentOrchestrator {
             // 累积 assistant 和 user 消息用于持久化
             // - 跳过 replay 消息，避免 resume 时重复写入
             // - 对 user 消息，仅累积含 tool_result 的（初始用户消息已在步骤 5 手动持久化）
-            // - 对 system 消息，仅累积 compact_boundary（上下文压缩分界线需要持久化显示）
+            // - 对 system 消息，仅累积需要长期可见的状态（压缩 / 权限拒绝）
             if (msg.type === 'assistant' || msg.type === 'user' || msg.type === 'result') {
               const msgRecord = msg as Record<string, unknown>
               if (!msgRecord.isReplay) {
@@ -1857,8 +1744,8 @@ export class AgentOrchestrator {
                 }
               }
             } else if (msg.type === 'system') {
-              const sysMsg = msg as import('@legis/shared').SDKSystemMessage
-              if (sysMsg.subtype === 'compact_boundary' || sysMsg.subtype === 'permission_denied') {
+              const sysMsg = msg as SDKSystemMessage
+              if (isPersistableSDKSystemMessage(sysMsg)) {
                 accumulatedMessages.push(msg)
               }
             }
@@ -1905,7 +1792,7 @@ export class AgentOrchestrator {
                 skipNextRetryDelay = true
                 existingSdkSessionId = undefined
                 capturedSdkSessionId = undefined
-                lastRetryableError = this.prepareSessionNotFoundRecovery(sessionId, queryOptions, contextualMessage, agentCwd, accumulatedMessages, queryStartedAt)
+                lastRetryableError = this.prepareSessionNotFoundRecovery(sessionId, queryOptions, contextualMessage, agentCwd, workspaceSlug, accumulatedMessages, queryStartedAt)
                 stderrChunks.length = 0
                 shouldRetryFromError = true
                 break
@@ -1964,8 +1851,8 @@ export class AgentOrchestrator {
 
           const wasStoppedByUser = this.consumeStoppedByUser(sessionId)
 
-          // 正常完成 — 如果之前有重试，发送 retry_cleared
-          if (!wasStoppedByUser && retryAttemptsScheduled > 0) {
+          // 正常完成 — 如果之前有可见重试，发送 retry_cleared
+          if (!wasStoppedByUser && retryAttemptsScheduled > RETRY_VISIBILITY_THRESHOLD) {
             this.eventBus.emit(sessionId, { kind: 'proma_event', event: { type: 'retry', status: 'cleared' } })
             console.log(`[Agent 编排] 重试成功，已在第 ${attempt} 次尝试后恢复`)
           }
@@ -2015,6 +1902,11 @@ export class AgentOrchestrator {
           const stderrOutput = stderrChunks.join('').trim()
           const apiError = extractApiError(stderrOutput)
           const rawErrorMessage = error instanceof Error ? error.message : ''
+          const catchLooksPromptTooLong = isPromptTooLongError(
+            apiError?.message ?? '',
+            rawErrorMessage,
+            stderrOutput,
+          )
 
           // Session 不存在错误：清除 sdkSessionId，切换到上下文回填模式重试
           if (isSessionNotFoundError(rawErrorMessage, stderrOutput) && existingSdkSessionId && canAutoRetry(attempt)) {
@@ -2022,7 +1914,30 @@ export class AgentOrchestrator {
             skipNextRetryDelay = true
             existingSdkSessionId = undefined
             capturedSdkSessionId = undefined
-            lastRetryableError = this.prepareSessionNotFoundRecovery(sessionId, queryOptions, contextualMessage, agentCwd, accumulatedMessages, queryStartedAt)
+            lastRetryableError = this.prepareSessionNotFoundRecovery(sessionId, queryOptions, contextualMessage, agentCwd, workspaceSlug, accumulatedMessages, queryStartedAt)
+            stderrChunks.length = 0
+            continue  // 进入下一次 retry 循环
+          }
+
+          // 上下文过长：清除超限 resume 指针，用 Proma 历史回填自动恢复一次。
+          if (catchLooksPromptTooLong && canTryPromptTooLongRecovery(attempt)) {
+            promptTooLongRecoveryAttempted = true
+            invisibleRecoveryAttempts += 1
+            existingSdkSessionId = undefined
+            capturedSdkSessionId = undefined
+            skipNextRetryDelay = true
+            lastRetryableError = this.prepareResumeFallbackRecovery(
+              sessionId,
+              queryOptions,
+              contextualMessage,
+              agentCwd,
+              workspaceSlug,
+              accumulatedMessages,
+              queryStartedAt,
+              '检测到上下文过长，清除 sdkSessionId 并切换到上下文回填模式',
+              '上下文过长，切换到上下文回填模式',
+              true,
+            )
             stderrChunks.length = 0
             continue  // 进入下一次 retry 循环
           }
@@ -2042,6 +1957,7 @@ export class AgentOrchestrator {
               queryOptions,
               contextualMessage,
               agentCwd,
+              workspaceSlug,
               accumulatedMessages,
               queryStartedAt,
               '检测到 thinking signature 不兼容，清除 sdkSessionId 并切换到上下文回填模式',
@@ -2123,6 +2039,9 @@ export class AgentOrchestrator {
                 ]
               : undefined
             userFacingError = errorContent
+            if (isPromptTooLong) {
+              try { updateAgentSessionMeta(sessionId, { sdkSessionId: undefined }) } catch { /* 忽略 */ }
+            }
 
             const errMsg: SDKMessage = {
               type: 'assistant',
@@ -2142,8 +2061,8 @@ export class AgentOrchestrator {
             console.error('[Agent 编排] 保存错误消息失败:', saveError)
           }
 
-          // 如果之前有重试记录，发送 retry_failed
-          if (retryAttemptsScheduled > 0 && lastRetryableError) {
+          // 如果之前有可见重试记录，发送 retry_failed
+          if (retryAttemptsScheduled > RETRY_VISIBILITY_THRESHOLD && lastRetryableError) {
             this.eventBus.emit(sessionId, {
               kind: 'proma_event',
               event: { type: 'retry', status: 'failed', attemptData: { attempt: retryAttemptsScheduled, timestamp: Date.now(), reason: lastRetryableError, errorMessage: userFacingError, delaySeconds: 0 } },
@@ -2172,10 +2091,14 @@ export class AgentOrchestrator {
         const retryFailureMessage = retryDelayElapsedMs >= MAX_AUTO_RETRY_WAIT_MS
           ? '重试等待已达到 5 分钟后仍然失败'
           : `重试 ${retryAttemptsScheduled || MAX_AUTO_RETRIES} 次后仍然失败`
-        this.eventBus.emit(sessionId, {
-          kind: 'proma_event',
-          event: { type: 'retry', status: 'failed', attemptData: { attempt: retryAttemptsScheduled || MAX_AUTO_RETRIES, timestamp: Date.now(), reason: lastRetryableError, errorMessage: retryFailureMessage, delaySeconds: 0 } },
-        })
+
+        // 仅当重试曾经对用户可见时才发送 retry_failed 事件
+        if (retryAttemptsScheduled > RETRY_VISIBILITY_THRESHOLD) {
+          this.eventBus.emit(sessionId, {
+            kind: 'proma_event',
+            event: { type: 'retry', status: 'failed', attemptData: { attempt: retryAttemptsScheduled || MAX_AUTO_RETRIES, timestamp: Date.now(), reason: lastRetryableError, errorMessage: retryFailureMessage, delaySeconds: 0 } },
+          })
+        }
 
         // 保存错误消息
         const retryErrorContent = `${retryFailureMessage}: ${lastRetryableError}`

@@ -72,7 +72,7 @@ interface ChannelFormProps {
 }
 
 /** 所有可选供应商 */
-const PROVIDER_OPTIONS: ProviderType[] = ['anthropic', 'anthropic-compatible', 'openai', 'deepseek', 'google', 'kimi-api', 'kimi-coding', 'zhipu', 'zhipu-coding', 'minimax', 'doubao', 'qwen', 'qwen-anthropic', 'xiaomi', 'xiaomi-token-plan', 'custom']
+const PROVIDER_OPTIONS: ProviderType[] = ['anthropic', 'anthropic-compatible', 'openai', 'deepseek', 'google', 'kimi-api', 'kimi-coding', 'zhipu', 'zhipu-coding', 'ark-coding-plan', 'minimax', 'doubao', 'qwen', 'qwen-anthropic', 'xiaomi', 'xiaomi-token-plan', 'custom']
 
 /** 供应商选项（用于 SettingsSelect） */
 const PROVIDER_SELECT_OPTIONS = PROVIDER_OPTIONS.map((p) => ({
@@ -89,6 +89,7 @@ const ANTHROPIC_PROTOCOL_PROVIDERS: ReadonlySet<ProviderType> = new Set<Provider
   'kimi-api',
   'kimi-coding',
   'zhipu-coding',
+  'ark-coding-plan',
   'minimax',
   'xiaomi',
   'xiaomi-token-plan',
@@ -276,6 +277,17 @@ export function ChannelForm({ channel, onSaved, onAgentEligibilityChange, onCanc
           { id: 'glm-5.2', name: 'GLM-5.2', enabled: true },
           { id: 'glm-5.1', name: 'GLM-5.1', enabled: false },
         ])
+      } else if (p === 'ark-coding-plan') {
+        setModels([
+          { id: 'doubao-seed-2.0-code', name: 'Doubao Seed 2.0 Code', enabled: true },
+          { id: 'doubao-seed-2.0-pro', name: 'Doubao Seed 2.0 Pro', enabled: true },
+          { id: 'doubao-seed-2.0-lite', name: 'Doubao Seed 2.0 Lite', enabled: true },
+          { id: 'glm-5.2', name: 'GLM-5.2', enabled: true },
+          { id: 'kimi-k2.7-code', name: 'Kimi K2.7 Code', enabled: true },
+          { id: 'minimax-m3', name: 'MiniMax M3', enabled: true },
+          { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', enabled: true },
+          { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', enabled: true },
+        ])
       } else if (p === 'minimax') {
         setModels([
           { id: 'MiniMax-M3', name: 'MiniMax-M3', enabled: true },
@@ -342,13 +354,14 @@ export function ChannelForm({ channel, onSaved, onAgentEligibilityChange, onCanc
 
       setFetchResult(result)
 
-      // 用拉取结果作为权威清单替换：
+      // 用成功拉取的结果作为权威清单替换：
       // - source==='manual' 的模型一律保留（即便不在新结果里）
       // - 在新结果里也存在的旧模型保留 enabled 状态
       // - 新出现的模型默认未启用
       // - 既不在新结果里、也不是手动添加的旧模型一律丢弃（清除残留）
-      // 失败（result.success===false）时 result.models 为空，等价于清掉所有非手动模型
-      const fetchedModels = result.success ? result.models : []
+      // 拉取失败时保留现有列表，避免 auto-save 持久化空模型列表
+      if (!result.success) return
+      const fetchedModels = result.models
       const fetchedById = new Map(fetchedModels.map((m) => [m.id, m]))
       setModels((prev) => {
         const manualKept = prev.filter((m) => m.source === 'manual' && !fetchedById.has(m.id))
@@ -360,8 +373,6 @@ export function ChannelForm({ channel, onSaved, onAgentEligibilityChange, onCanc
       })
     } catch (error) {
       setFetchResult({ success: false, message: '拉取模型请求失败', models: [] })
-      // IPC 异常等同样按"拉取结果为空"处理：清掉所有非手动模型，保留手动添加的
-      setModels((prev) => prev.filter((m) => m.source === 'manual'))
     } finally {
       setFetchingModels(false)
     }

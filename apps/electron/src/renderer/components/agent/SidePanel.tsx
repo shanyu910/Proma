@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils'
 import { FileBrowser, FileDropZone, FileTypeIcon, FileSearchBar, computeRevealAncestors, isPathUnderRoot, computeTreeRowLayout, AncestorGuides, STICKY_ROW_BASE_CLASS, canBeSticky } from '@/components/file-browser'
 import { DiffPanelTabBar } from '@/components/diff/DiffPanelTabBar'
 import { DiffChangesList } from '@/components/diff/DiffChangesList'
+import { ChatView } from '@/components/chat/ChatView'
 import {
   agentSidePanelOpenAtom,
   workspaceFilesVersionAtom,
@@ -34,6 +35,8 @@ import {
   fileBrowserAutoRevealAtom,
   agentSelectedWorktreeAtom,
 } from '@/atoms/agent-atoms'
+import type { AgentSidePanelTab } from '@/atoms/agent-atoms'
+import { agentSideChatMapAtom } from '@/atoms/chat-atoms'
 import { interfaceVariantAtom } from '@/atoms/theme'
 import { previewFileMapAtom } from '@/atoms/preview-atoms'
 import { useOpenPreview } from '@/components/diff/preview-opener'
@@ -55,8 +58,8 @@ function getMediaTypeFromFilename(filename: string): string {
 interface SidePanelProps {
   sessionId: string
   sessionPath: string | null
-  activeTab: 'session' | 'workspace' | 'changes'
-  onTabChange: (tab: 'session' | 'workspace' | 'changes') => void
+  activeTab: AgentSidePanelTab
+  onTabChange: (tab: AgentSidePanelTab) => void
   width?: number
 }
 
@@ -396,6 +399,24 @@ export function SidePanel({ sessionId, sessionPath, activeTab, onTabChange, widt
   const hasWorkspaceAttachedItems = wsAttachedDirs.length > 0 || wsAttachedFiles.length > 0
   const interfaceVariant = useAtomValue(interfaceVariantAtom)
   const isClassic = interfaceVariant === 'classic'
+  const sideChatMap = useAtomValue(agentSideChatMapAtom)
+  const setSideChatMap = useSetAtom(agentSideChatMapAtom)
+  const sideChatConversationId = sideChatMap.get(sessionId) ?? null
+  const effectiveActiveTab: AgentSidePanelTab = activeTab === 'chat' && !sideChatConversationId
+    ? 'session'
+    : activeTab
+
+  const handleCloseChatTab = React.useCallback(() => {
+    setSideChatMap((prev) => {
+      if (!prev.has(sessionId)) return prev
+      const next = new Map(prev)
+      next.delete(sessionId)
+      return next
+    })
+    if (activeTab === 'chat') {
+      onTabChange('session')
+    }
+  }, [activeTab, onTabChange, sessionId, setSideChatMap])
 
   return (
     <div
@@ -416,9 +437,24 @@ export function SidePanel({ sessionId, sessionPath, activeTab, onTabChange, widt
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none',
         )}
         >
-          <DiffPanelTabBar activeTab={activeTab} onTabChange={onTabChange} onClose={() => setIsOpen(false)} isWindows={isWindows} />
+          <DiffPanelTabBar
+            activeTab={effectiveActiveTab}
+            onTabChange={onTabChange}
+            onClose={() => setIsOpen(false)}
+            onCloseChat={handleCloseChatTab}
+            showChatTab={Boolean(sideChatConversationId)}
+            isWindows={isWindows}
+          />
 
-          {activeTab === 'changes' ? (
+          {effectiveActiveTab === 'chat' ? (
+            sideChatConversationId ? (
+              <div className="min-h-0 flex-1 overflow-hidden">
+                <ChatView conversationId={sideChatConversationId} />
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs">暂无问答会话</div>
+            )
+          ) : effectiveActiveTab === 'changes' ? (
             sessionPath ? (
               <DiffChangesList
                 key={sessionId}
@@ -436,7 +472,7 @@ export function SidePanel({ sessionId, sessionPath, activeTab, onTabChange, widt
             ) : (
               <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs">等待会话初始化...</div>
             )
-          ) : activeTab === 'session' ? (
+          ) : effectiveActiveTab === 'session' ? (
             <div className="flex-1 min-h-0 flex flex-col pt-0.5 mx-2 mb-2">
               {sessionPath ? (
                 <>
@@ -641,7 +677,7 @@ function AttachedFilesSection({ attachedFiles, onDetach, onAddToChat, onFilePrev
             <FileTypeIcon name={name} isDirectory={false} />
             <span className="text-xs truncate flex-1" title={filePath}>{name}</span>
             <div
-              className="flex-shrink-0"
+              className="flex-shrink-0 mr-1"
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
             >
@@ -899,7 +935,7 @@ function AttachedDirTree({ dirPath, onDetach, selectedPaths, onSelect, refreshVe
           type="button"
           variant="ghost"
           size="icon"
-          className="relative z-10 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+          className="relative z-10 h-5 w-5 mr-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
           onClick={(e) => { e.stopPropagation(); onDetach() }}
         >
           <X className="size-3" />
@@ -1157,7 +1193,7 @@ function AttachedDirItem({ entry, depth, selectedPaths, onSelect, refreshVersion
 
         {/* 右侧操作按钮占位 */}
         <div
-          className="relative z-10 flex-shrink-0"
+          className="relative z-10 flex-shrink-0 mr-1"
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
         >
