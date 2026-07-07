@@ -1,19 +1,17 @@
 # GitHub Actions: 自动打包分发
 #
-# 触发条件：推送 v* tag（如 v0.0.1）
+# 触发条件：推送 v* tag（如 v0.0.3）
 # 构建 macOS (arm64 + x64) 和 Windows (x64) 产物并发布到 GitHub Releases
 #
-# 当前状态：无代码签名证书
-# - macOS 包未签名：用户首次打开需右键 → 打开
-# - Windows 包未签名：SmartScreen 会警告，用户点"仍要运行"
+# 签名状态：
+# - macOS：用自签名证书 LegisSelfSign 签名（启用 electron-updater 自动更新）
+#          未公证，用户首次打开需右键 → 打开
+# - Windows：未签名，SmartScreen 会警告，用户点"仍要运行"
 #
-# 所需 GitHub Secrets（macOS 签名/公证，可选，配了就自动签名）:
-# - MAC_CERTS: Base64 编码的 macOS Developer ID Application 证书 (.p12)
-# - MAC_CERTS_PASSWORD: 证书密码
-# - APPLE_ID: Apple ID（公证用）
-# - APPLE_APP_SPECIFIC_PASSWORD: App-Specific 密码（公证用）
-# - APPLE_TEAM_ID: Apple Developer Team ID
-# GITHUB_TOKEN 由 GitHub Actions 自动提供，无需手动配置
+# 所需 GitHub Secrets：
+# - MAC_CERTS: Base64 编码的自签名证书 .p12
+# - MAC_CERTS_PASSWORD: .p12 文件密码
+# GITHUB_TOKEN 由 GitHub Actions 自动提供
 
 name: Release
 
@@ -77,14 +75,14 @@ jobs:
         run: bun run electron:build
 
       # 打包并发布到 GitHub Releases
-      # 无证书时 CSC_IDENTITY_AUTO_DISCOVERY=false 跳过签名
+      # 用自签名证书 LegisSelfSign 签名（启用 macOS 自动更新的必要条件）
       - name: 打包并发布 (macOS arm64)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.MAC_CERTS && 'true' || 'false' }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CSC_NAME: LegisSelfSign
+          # 禁用公证（自签名证书无法公证，用户首次打开需右键→打开）
+          CSC_IDENTITY_AUTO_DISCOVERY: 'true'
+          # 不传 APPLE_*，跳过 Apple 公证
         run: |
           for i in 1 2 3; do
             npx electron-builder --mac --arm64 --publish always && break
@@ -144,10 +142,8 @@ jobs:
       - name: 打包并发布 (macOS x64)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.MAC_CERTS && 'true' || 'false' }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CSC_NAME: LegisSelfSign
+          CSC_IDENTITY_AUTO_DISCOVERY: 'true'
         run: |
           for i in 1 2 3; do
             npx electron-builder --mac --x64 --publish always && break
