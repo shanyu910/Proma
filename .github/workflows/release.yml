@@ -139,14 +139,26 @@ jobs:
           KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
           KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
 
+          # 创建临时钥匙串
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
+          # 解码 .p12
           echo "$MAC_CERTS" | base64 --decode > $RUNNER_TEMP/cert.p12
+
+          # 导入证书 + 私钥
           security import $RUNNER_TEMP/cert.p12 -P "$MAC_CERTS_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import $RUNNER_TEMP/cert.p12 -P "$MAC_CERTS_PASSWORD" -A -t priv -f pkcs12 -k "$KEYCHAIN_PATH" 2>/dev/null || true
+
+          # 设置 partition list
+          security set-key-partition-list -S apple-tool:,apple:,codesign:,codesign -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" 2>/dev/null || true
+
           security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+          # 验证导入成功
+          echo "=== 验证证书导入 ==="
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH" || echo "⚠️  未找到代码签名证书"
 
           rm $RUNNER_TEMP/cert.p12
 
