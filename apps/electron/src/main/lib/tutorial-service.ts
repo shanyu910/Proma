@@ -67,11 +67,11 @@ export function createWelcomeConversation(): ConversationMeta | null {
 
   try {
     // 1. 创建对话
-    const meta = createConversation('了解 Proma')
+    const meta = createConversation('欢迎使用 Legis')
 
     // 2. 保存教程文件为附件
     const attachmentId = randomUUID()
-    const attachmentFilename = 'Proma 使用教程.md'
+    const attachmentFilename = 'Legis 使用教程.md'
     const localPath = `${meta.id}/${attachmentId}.md`
     const dir = getConversationAttachmentsDir(meta.id)
     const fullPath = join(dir, `${attachmentId}.md`)
@@ -93,29 +93,26 @@ export function createWelcomeConversation(): ConversationMeta | null {
     const userMessage: ChatMessage = {
       id: randomUUID(),
       role: 'user',
-      content: '你好，我是 Proma 的新用户，希望快速上手。这是完整的使用教程，作为你的参考。',
+      content: '你好，我是一名律师，希望用 Legis 提升工作效率。这是使用教程，请作为参考。',
       createdAt: now,
       attachments: [attachment],
     }
     appendMessage(meta.id, userMessage)
 
-    // 4. 追加 assistant 欢迎消息（引导式对话：先了解用户，再生成个性化最佳实践）
+    // 4. 追加 assistant 欢迎消息（面向法律行业，突出核心能力，简洁专业）
     const assistantMessage: ChatMessage = {
       id: randomUUID(),
       role: 'assistant',
-      content: `你好，欢迎来到 Proma！Proma 是一个通用的 Agent，其实它可以完成任何事，说实话这也挺难的，因为你要构建完整的工作环境才能做到，这会涉及到一些新的概念或者思考方式，不过别担心，我们做了很多设计可以帮助你靠谱稳定的越用越好用。
+      content: `你好，欢迎来到 Legis。我是你的法律 AI 助手，可以帮你处理日常法律工作：
 
-在介绍功能之前，想先认识一下你：
+• **合同审查与起草** — 上传合同，我逐条审查风险、标注关键条款
+• **法律研究** — 检索法条、梳理裁判规则、对比相似案例
+• **文书撰写** — 起诉状、答辩状、法律意见书、律师函、备忘录
+• **文档解析** — 支持 PDF、Word，自动提取关键信息
 
-1. 怎么称呼你？
-2. 你的职业或主要角色是什么？（比如独立开发者、产品经理、数据分析师、运营、学生……）
-3. 你最近在做什么工作或项目？有哪些场景或痛点想交给 AI 帮忙？
-
-了解你的背景之后，我会为你单独整理一份专属的 Proma 使用最佳实践——告诉你哪些功能最值得用、推荐的 Skills / MCP 配置，以及贴合你场景的工作流模板。
-
-直接在下面回复就好，可以一次说完，也可以分几条慢慢聊。`,
+直接在下方描述需求，或拖入文件开始即可。`,
       createdAt: now + 1,
-      model: 'Proma',
+      model: 'Legis',
     }
     appendMessage(meta.id, assistantMessage)
 
