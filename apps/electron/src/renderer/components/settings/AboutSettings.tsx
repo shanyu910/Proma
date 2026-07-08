@@ -456,8 +456,12 @@ export function AboutSettings(): React.ReactElement {
         </SettingsRow>
       </SettingsCard>
 
-      {/* 自动更新卡片（updater 不可用时不渲染） */}
-      <UpdateCard />
+      {/* 自动更新卡片
+          Legis 品牌定制：暂时隐藏。
+          原因：无 Apple 公证证书，electron-updater 在 macOS 上自动安装会失败；
+          且后台检查已禁用（国内访问 GitHub 卡顿）。
+          等将来买了 Apple Developer + 公证后，去掉 {false &&} 即可恢复。 */}
+      {false && <UpdateCard />}
 
       {/* 版本历史（Legis 品牌定制：暂时隐藏，国内用户访问 GitHub API 不稳定，
           后续如需展示 changelog，应从 TOS 拉取） */}
