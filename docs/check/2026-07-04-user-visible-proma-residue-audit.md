@@ -1,6 +1,6 @@
 # 审查记录：用户可见 "Proma" 残留全量排查
 
-> 审查对象：commit `aeb9f3a1 refactor: 品牌重命名 @proma → @legis` 的**用户可见层面**彻底性
+> 审查对象：commit `aeb9f3a1 refactor: 品牌重命名 @proma → @runwork` 的**用户可见层面**彻底性
 > 审查日期：2026-07-04
 > 审查动机：用户反馈"应用中仍能看到 Proma"——确认 brand-rename 不彻底
 > 审查结论：**🔴 不彻底。约 30+ 处用户可见 "Proma" 文案未改，覆盖多个核心界面。**
@@ -9,11 +9,11 @@
 
 ## 问题本质
 
-commit `aeb9f3a1` 只用 `sed` 做了 `@proma → @legis`（包名）+ 少量手改（菜单栏标题、系统提示词自称）。但**用户可见的中文文案里**带 "Proma" 的，绝大多数**没有 `@` 前缀**，sed 没命中，手改也没覆盖到。
+commit `aeb9f3a1` 只用 `sed` 做了 `@proma → @runwork`（包名）+ 少量手改（菜单栏标题、系统提示词自称）。但**用户可见的中文文案里**带 "Proma" 的，绝大多数**没有 `@` 前缀**，sed 没命中，手改也没覆盖到。
 
 已改的代表（证明改动确有进行）：
-- ✅ 菜单栏 `关于 Legis / 隐藏 Legis / 退出 Legis`（menu.ts）
-- ✅ 系统提示词自称 `你是 Legis Agent`（agent-prompt-builder.ts:57）
+- ✅ 菜单栏 `关于 RunWork / 隐藏 RunWork / 退出 RunWork`（menu.ts）
+- ✅ 系统提示词自称 `你是 RunWork Agent`（agent-prompt-builder.ts:57）
 
 未改的代表（用户会直接看到的）：
 - 🔴 **首次启动欢迎页**："欢迎使用 Proma"
@@ -53,7 +53,7 @@ commit `aeb9f3a1` 只用 `sed` 做了 `@proma → @legis`（包名）+ 少量手
 | `ChannelSettings.tsx:398` | `<img src={PromaLogo} alt="Proma" ... />` |
 | `ChannelSettings.tsx:399` | `description="Proma 官方供应｜稳定｜靠谱｜丝滑｜简单｜可用于 Agent"` |
 
-> 这里整张"官方供应商"卡片还是 Proma 品牌。需要决策：**移除整张卡片**（Legis 没有官方供应商），还是改文案。
+> 这里整张"官方供应商"卡片还是 Proma 品牌。需要决策：**移除整张卡片**（RunWork 没有官方供应商），还是改文案。
 
 ---
 
@@ -138,7 +138,7 @@ commit `aeb9f3a1` 只用 `sed` 做了 `@proma → @legis`（包名）+ 少量手
 | `tray.ts:104` | `label: '打开 Proma'` |
 | `tray.ts:109` | `label: '退出 Proma'` |
 
-> 与 menu.ts 已改的"关于 Legis"形成**品牌不一致**——同是系统级入口，菜单栏改了托盘没改。
+> 与 menu.ts 已改的"关于 RunWork"形成**品牌不一致**——同是系统级入口，菜单栏改了托盘没改。
 
 ---
 
@@ -156,7 +156,7 @@ commit `aeb9f3a1` 只用 `sed` 做了 `@proma → @legis`（包名）+ 少量手
 | `agent-orchestrator.ts:1123` | `payload: 'https://github.com/shanyu910/Proma/issues/new'`（反馈链接） |
 | `adapters/claude-agent-adapter.ts:195` | `请检查是否选择了正确的 Proma 供应渠道和模型`（错误提示） |
 
-> ⚠️ **关键矛盾**：实际 CLI bin name 已是 `legis`，环境变量是 `LEGIS_CLI`，但提示词告诉 Agent 用 "Proma CLI"——**品牌不一致 + 可能误导模型**。
+> ⚠️ **关键矛盾**：实际 CLI bin name 已是 `runwork`，环境变量是 `RUNWORK_CLI`，但提示词告诉 Agent 用 "Proma CLI"——**品牌不一致 + 可能误导模型**。
 
 ---
 
@@ -184,7 +184,7 @@ commit `aeb9f3a1` 只用 `sed` 做了 `@proma → @legis`（包名）+ 少量手
 |---|---|
 | `menu.ts:115` | `shell.openExternal('https://github.com/yourusername/proma')` |
 
-> 明显未完成的占位 URL，`yourusername/proma` 不是合法地址，且与 AboutSettings 的 `shanyu910/Legis-pro` 不一致。
+> 明显未完成的占位 URL，`yourusername/proma` 不是合法地址，且与 AboutSettings 的 `shanyu910/RunWork-pro` 不一致。
 
 ---
 
@@ -202,9 +202,9 @@ commit `aeb9f3a1` 只用 `sed` 做了 `@proma → @legis`（包名）+ 少量手
 
 ## 🔧 修复策略建议
 
-这批残留**全部应该改为 Legis**（无一是"内部功能性标识符"），建议分两类处理：
+这批残留**全部应该改为 RunWork**（无一是"内部功能性标识符"），建议分两类处理：
 
-### A. 纯文案替换（Proma → Legis）—— 安全，直接改
+### A. 纯文案替换（Proma → RunWork）—— 安全，直接改
 
 涉及：OnboardingView、AgentSkillsView、BuiltinMcpDetailSheet、SDKMessageRenderer、EnvironmentCheck、Automation、SearchDialog、VoiceInputSettings、tray.ts、agent-orchestrator（提示词）、claude-agent-adapter、feishu-message、automation-notification-format、text-output-service。
 
@@ -219,11 +219,11 @@ commit `aeb9f3a1` 只用 `sed` 做了 `@proma → @legis`（包名）+ 少量手
 
 | 位置 | 决策点 |
 |---|---|
-| `ChannelSettings.tsx` PromaProviderCard | **整张卡片如何处理**：移除？还是改成 Legis 自有供应商入口？（Legis 是否有"官方供应商"？） |
-| `agent-orchestrator.ts:1117` `proma.cool/download` | 下载链接指向旧品牌站，是否改为 Legis 发布页？ |
-| `agent-orchestrator.ts:1123` + `ChannelSettings.tsx:392` | GitHub 链接统一到 `shanyu910/Legis-pro` 还是保留 `shanyu910/Proma`（仓库名）？ |
+| `ChannelSettings.tsx` PromaProviderCard | **整张卡片如何处理**：移除？还是改成 RunWork 自有供应商入口？（RunWork 是否有"官方供应商"？） |
+| `agent-orchestrator.ts:1117` `proma.cool/download` | 下载链接指向旧品牌站，是否改为 RunWork 发布页？ |
+| `agent-orchestrator.ts:1123` + `ChannelSettings.tsx:392` | GitHub 链接统一到 `shanyu910/RunWork-pro` 还是保留 `shanyu910/Proma`（仓库名）？ |
 | `menu.ts:115` `yourusername/proma` | **必改**（占位 bug），改为合法地址 |
-| `lib/model-logo.ts` `PromaLogo` + `[/proma\.cool/i, PromaLogo]` | logo 资源匹配规则，是否需要为 Legis 域名单独加规则？ |
+| `lib/model-logo.ts` `PromaLogo` + `[/proma\.cool/i, PromaLogo]` | logo 资源匹配规则，是否需要为 RunWork 域名单独加规则？ |
 
 ---
 
@@ -250,13 +250,13 @@ commit `aeb9f3a1` 只用 `sed` 做了 `@proma → @legis`（包名）+ 少量手
 # 渲染层用户可见文案（排除内部标识符 + 排除 import/className）
 grep -rn "Proma" apps/electron/src/renderer --include="*.tsx" \
   | grep -v node_modules \
-  | grep -viE "import |from '@legis|legis-logos|atomWithStorage|className=|getPromaUserAgent|PromaPermissionMode|PROMA_|proma_event|proma-workspace|proma-code-block|proma-agent-process|PromaLogoSettings|PromaProviderCard|PromaLogo[^A-Za-z]|alt=\"Proma\"|/\*|\* "
+  | grep -viE "import |from '@runwork|runwork-logos|atomWithStorage|className=|getPromaUserAgent|PromaPermissionMode|PROMA_|proma_event|proma-workspace|proma-code-block|proma-agent-process|PromaLogoSettings|PromaProviderCard|PromaLogo[^A-Za-z]|alt=\"Proma\"|/\*|\* "
 
 # 主进程面向用户文本
 grep -rn "Proma" apps/electron/src/main --include="*.ts" \
   | grep -v node_modules \
   | grep -viE "getPromaUserAgent|PromaPermissionMode|PROMA_|proma_event|proma-workspace|console\.log|//|/\*|\* |import |kind:"
 
-# 验证已改的（应输出 Legis）
-grep -n "关于 Legis\|你是 Legis Agent" apps/electron/src/main/menu.ts apps/electron/src/main/lib/agent-prompt-builder.ts
+# 验证已改的（应输出 RunWork）
+grep -n "关于 RunWork\|你是 RunWork Agent" apps/electron/src/main/menu.ts apps/electron/src/main/lib/agent-prompt-builder.ts
 ```

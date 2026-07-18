@@ -26,7 +26,7 @@ import { agentSkillsTabAtom } from '@/atoms/active-view'
 import { settingsOpenAtom, settingsTabAtom, toolSettingsFocusAtom, type ToolSettingsFocus } from '@/atoms/settings-tab'
 import { useProjectActions } from '@/hooks/useProjectActions'
 import { useCreateSession } from '@/hooks/useCreateSession'
-import type { BuiltinMcpServerSummary, McpServerEntry, SkillMeta } from '@legis/shared'
+import type { BuiltinMcpServerSummary, McpServerEntry, SkillMeta } from '@runwork/shared'
 import { useAgentSkillsData } from './useAgentSkillsData'
 import { SkillCard } from './SkillCard'
 import { McpCard } from './McpCard'
@@ -501,7 +501,7 @@ function SkillsTab({
   onUpdate,
 }: SkillsTabProps): React.ReactElement {
   if (total === 0) {
-    return <EmptyState icon={<Blocks className="size-8 text-foreground/30" />} title="暂无 Skill" hint="可以在 Agent 模式下让 Legis 帮你联网查找并安装 Skill，或从其他工作区导入。" />
+    return <EmptyState icon={<Blocks className="size-8 text-foreground/30" />} title="暂无 Skill" hint="可以在 Agent 模式下让 RunWork 帮你联网查找并安装 Skill，或从其他工作区导入。" />
   }
   if (customSkills.length === 0 && builtinSkills.length === 0) {
     return <EmptyState icon={<Search className="size-8 text-foreground/30" />} title="没有匹配的 Skill" hint="试试更换搜索关键词。" />
@@ -518,7 +518,7 @@ function SkillsTab({
         <SkillSection title="我的 Skills" skills={customSkills} isBuiltin={isBuiltin} updatingSkill={updatingSkill} onOpen={onOpen} onToggle={onToggle} onUpdate={onUpdate} />
       )}
       {builtinSkills.length > 0 && (
-        <SkillSection title="Legis 内置" skills={builtinSkills} isBuiltin={isBuiltin} updatingSkill={updatingSkill} onOpen={onOpen} onToggle={onToggle} onUpdate={onUpdate} />
+        <SkillSection title="RunWork 内置" skills={builtinSkills} isBuiltin={isBuiltin} updatingSkill={updatingSkill} onOpen={onOpen} onToggle={onToggle} onUpdate={onUpdate} />
       )}
     </div>
   )
@@ -610,7 +610,7 @@ function McpTab({ userEntries, builtinServers, total, onOpen, onOpenBuiltin, onT
       <EmptyState
         icon={<Plus className="size-8 text-foreground/30" />}
         title="还没有 MCP 服务器"
-        hint="点击右上角「添加服务器」开始，或在 Agent 模式下让 Legis 帮你查找并配置。"
+        hint="点击右上角「添加服务器」开始，或在 Agent 模式下让 RunWork 帮你查找并配置。"
         action={
           <button
             type="button"
@@ -646,19 +646,19 @@ function McpTab({ userEntries, builtinServers, total, onOpen, onOpenBuiltin, onT
       )}
 
       {builtinServers.length > 0 && (
-        <McpSection title="Legis 内置" count={builtinServers.length}>
+        <McpSection title="RunWork 内置" count={builtinServers.length}>
           {builtinServers.map((server) => (
             <McpCard
               key={server.id}
               name={server.displayName}
               entry={{
                 type: 'stdio',
-                command: 'Legis 运行时注入',
+                command: 'RunWork 运行时注入',
                 enabled: server.enabled,
                 isBuiltin: true,
               }}
               description={server.description}
-              targetLabel={server.availabilityReason ?? 'Legis 运行时注入'}
+              targetLabel={server.availabilityReason ?? 'RunWork 运行时注入'}
               statusLabel={getBuiltinMcpStatus(server).label}
               statusTone={getBuiltinMcpStatus(server).tone}
               readOnly

@@ -1,5 +1,5 @@
 /**
- * @legis/shared - Shared types, configs and utilities
+ * @runwork/shared - Shared types, configs and utilities
  */
 
 export * from './types/index'

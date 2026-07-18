@@ -17,7 +17,7 @@ import type {
   SDKUserMessage,
   SDKToolUseBlock,
   SDKToolResultBlock,
-} from '@legis/shared'
+} from '@runwork/shared'
 import { FilePathChip } from '@/components/ai-elements/file-path-chip'
 
 const MUTATING_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit'])

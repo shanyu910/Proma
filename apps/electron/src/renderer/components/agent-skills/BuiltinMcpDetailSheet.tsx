@@ -1,5 +1,5 @@
 /**
- * BuiltinMcpDetailSheet — Legis 内置 MCP 托管详情
+ * BuiltinMcpDetailSheet — RunWork 内置 MCP 托管详情
  */
 
 import * as React from 'react'
@@ -7,7 +7,7 @@ import { ArrowLeft, CheckCircle2, Plug, Settings2, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
-import type { BuiltinMcpServerSummary } from '@legis/shared'
+import type { BuiltinMcpServerSummary } from '@runwork/shared'
 
 interface BuiltinMcpDetailSheetProps {
   open: boolean
@@ -46,13 +46,13 @@ function getConfigInfo(server: BuiltinMcpServerSummary): BuiltinMcpConfigInfo {
   }
   if (server.id === 'automation') {
     return {
-      source: 'Legis 本地自动任务',
-      description: '自动任务 MCP 直接使用 Legis 本地任务服务，无需填写额外凭据。',
+      source: 'RunWork 本地自动任务',
+      description: '自动任务 MCP 直接使用 RunWork 本地任务服务，无需填写额外凭据。',
     }
   }
   return {
-    source: 'Legis 运行时',
-    description: '该内置 MCP 由 Legis 运行时托管。',
+    source: 'RunWork 运行时',
+    description: '该内置 MCP 由 RunWork 运行时托管。',
   }
 }
 
@@ -80,7 +80,7 @@ export function BuiltinMcpDetailSheet({ open, server, onOpenChange, onConfigure 
                   <div className="flex items-center gap-2">
                     <h3 className="truncate text-base font-semibold text-foreground">{server.displayName}</h3>
                     <span className="shrink-0 rounded-md bg-blue-500/10 px-1.5 py-0.5 text-[11px] font-medium text-blue-600 dark:text-blue-400">
-                      Legis 内置
+                      RunWork 内置
                     </span>
                   </div>
                   <div className="mt-0.5 truncate text-xs text-muted-foreground">{server.name}</div>

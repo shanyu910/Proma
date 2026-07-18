@@ -2,7 +2,7 @@
  * AppearanceSettings - 外观设置页
  *
  * 特殊风格选择 + 主题模式切换（浅色/深色/跟随系统/特殊风格）。
- * 通过 Jotai atom 管理状态，持久化到 ~/.legis/settings.json。
+ * 通过 Jotai atom 管理状态，持久化到 ~/.runwork/settings.json。
  */
 
 import * as React from 'react'
@@ -36,19 +36,19 @@ import { detectIsWindows } from '@/lib/platform'
 import type { InterfaceVariant, ThemeMode, ThemeStyle, MarkdownFontSize } from '../../../types'
 
 // ===== Logo 资源导入（用于图标选择器） =====
-import promaBlackLogo from '@/assets/bots/legis-logos/proma-black.png'
-import promaWhiteLogo from '@/assets/bots/legis-logos/proma-white.png'
-import promaBlueLogo from '@/assets/bots/legis-logos/proma-blue.png'
-import promaPurpleLogo from '@/assets/bots/legis-logos/proma-purple.png'
-import promaGradientLogo from '@/assets/bots/legis-logos/proma-gradient.png'
-import promaCoralLogo from '@/assets/bots/legis-logos/proma-coral.png'
-import promaVeriPeriLogo from '@/assets/bots/legis-logos/proma-veri-peri.png'
-import promaVivaMagentaLogo from '@/assets/bots/legis-logos/proma-viva-magenta.png'
-import promaMochaMousseLogo from '@/assets/bots/legis-logos/proma-mocha-mousse.png'
-import promaEmeraldLogo from '@/assets/bots/legis-logos/proma-emerald.png'
-import proma8bitLogo from '@/assets/bots/legis-logos/proma-8bit.png'
-import promaCyberpunkLogo from '@/assets/bots/legis-logos/proma-cyberpunk.png'
-import promaFuturisticLogo from '@/assets/bots/legis-logos/proma-futuristic.png'
+import promaBlackLogo from '@/assets/bots/runwork-logos/proma-black.png'
+import promaWhiteLogo from '@/assets/bots/runwork-logos/proma-white.png'
+import promaBlueLogo from '@/assets/bots/runwork-logos/proma-blue.png'
+import promaPurpleLogo from '@/assets/bots/runwork-logos/proma-purple.png'
+import promaGradientLogo from '@/assets/bots/runwork-logos/proma-gradient.png'
+import promaCoralLogo from '@/assets/bots/runwork-logos/proma-coral.png'
+import promaVeriPeriLogo from '@/assets/bots/runwork-logos/proma-veri-peri.png'
+import promaVivaMagentaLogo from '@/assets/bots/runwork-logos/proma-viva-magenta.png'
+import promaMochaMousseLogo from '@/assets/bots/runwork-logos/proma-mocha-mousse.png'
+import promaEmeraldLogo from '@/assets/bots/runwork-logos/proma-emerald.png'
+import proma8bitLogo from '@/assets/bots/runwork-logos/proma-8bit.png'
+import promaCyberpunkLogo from '@/assets/bots/runwork-logos/proma-cyberpunk.png'
+import promaFuturisticLogo from '@/assets/bots/runwork-logos/proma-futuristic.png'
 
 // ===== 主题预览图片导入 =====
 import themeCloudDancer from '@/assets/theme-previews/theme-cloud-dancer.webp'
@@ -293,7 +293,7 @@ export function AppearanceSettings(): React.ReactElement {
         </SettingsCard>
       </SettingsSection>
 
-      {/* Legis 品牌定制：禁用应用图标切换器，统一使用 Legis 蓝 L 图标 */}
+      {/* RunWork 品牌定制：禁用应用图标切换器，统一使用 RunWork 蓝 L 图标 */}
       {false && <AppIconPicker />}
     </div>
   )
@@ -386,7 +386,7 @@ function IconCard({
         )}
       >
         {variant.id === 'default' ? (
-          // 默认图标用 CSS 模拟 Legis logo 形状
+          // 默认图标用 CSS 模拟 RunWork logo 形状
           <div className="flex items-end gap-[2px] -rotate-12">
             {[1, 0.85, 0.7, 0.55, 0.4, 0.25].map((opacity, i) => (
               <div

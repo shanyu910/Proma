@@ -8,8 +8,8 @@
  */
 
 import { BrowserWindow } from 'electron'
-import type { AgentStreamPayload } from '@legis/shared'
-import { AGENT_IPC_CHANNELS } from '@legis/shared'
+import type { AgentStreamPayload } from '@runwork/shared'
+import { AGENT_IPC_CHANNELS } from '@runwork/shared'
 import { createAgentSession, listAgentSessions, getAgentSessionMeta } from './agent-session-manager'
 import {
   listAgentWorkspacesByUpdatedAt,
@@ -300,7 +300,7 @@ export class BridgeCommandHandler {
     const settings = getSettings()
     const channelId = settings.agentChannelId
     if (!channelId) {
-      await this.send(chatId, '请先在 Legis 设置中选择 Agent 渠道。', contextData)
+      await this.send(chatId, '请先在 RunWork 设置中选择 Agent 渠道。', contextData)
       return
     }
 
@@ -594,7 +594,7 @@ export class BridgeCommandHandler {
     if (channels.length === 0) {
       await this.send(
         chatId,
-        '暂无可用渠道。请先在 Legis 设置中配置并启用渠道（需填入 API Key 且至少启用一个模型）。',
+        '暂无可用渠道。请先在 RunWork 设置中配置并启用渠道（需填入 API Key 且至少启用一个模型）。',
         contextData,
       )
       return
@@ -657,7 +657,7 @@ export class BridgeCommandHandler {
     if (!binding) {
       binding = this.ensureBinding(chatId) ?? undefined
       if (!binding) {
-        await this.send(chatId, '请先发送一条消息创建会话，或在 Legis 设置中选择 Agent 渠道。', contextData)
+        await this.send(chatId, '请先发送一条消息创建会话，或在 RunWork 设置中选择 Agent 渠道。', contextData)
         return
       }
     }
@@ -684,7 +684,7 @@ export class BridgeCommandHandler {
     const settings = getSettings()
     const channelId = settings.agentChannelId
     if (!channelId) {
-      await this.send(chatId, '请先在 Legis 设置中选择 Agent 渠道。', contextData)
+      await this.send(chatId, '请先在 RunWork 设置中选择 Agent 渠道。', contextData)
       return
     }
 
@@ -694,7 +694,7 @@ export class BridgeCommandHandler {
     if (!binding) {
       const result = this.ensureBinding(chatId)
       if (!result) {
-        await this.send(chatId, '请先在 Legis 设置中选择 Agent 渠道。', contextData)
+        await this.send(chatId, '请先在 RunWork 设置中选择 Agent 渠道。', contextData)
         return
       }
       binding = result

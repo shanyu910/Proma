@@ -1,20 +1,20 @@
 {
-  "name": "@legis/cli",
+  "name": "@runwork/cli",
   "version": "0.1.0",
   "license": "AGPL-3.0-only",
-  "description": "legis — Legis 命令行工具。面向有限上下文的 Agent 消费者，提供会话的渐进式读取（list / info / outline / search / export）。",
+  "description": "runwork — RunWork 命令行工具。面向有限上下文的 Agent 消费者，提供会话的渐进式读取（list / info / outline / search / export）。",
   "type": "module",
   "bin": {
-    "legis": "./src/index.ts"
+    "runwork": "./src/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "bun build --compile --outfile dist/legis src/index.ts",
+    "build": "bun build --compile --outfile dist/runwork src/index.ts",
     "start": "bun src/index.ts"
   },
   "dependencies": {
-    "@legis/session-core": "workspace:*",
-    "@legis/shared": "workspace:*"
+    "@runwork/session-core": "workspace:*",
+    "@runwork/shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

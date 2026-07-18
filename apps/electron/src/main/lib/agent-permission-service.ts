@@ -16,13 +16,13 @@ import type {
   PermissionRequest,
   DangerLevel,
   AskUserRequest,
-} from '@legis/shared'
+} from '@runwork/shared'
 import {
   SAFE_TOOLS,
   isSafeBashCommand,
   isDangerousCommand,
   hasDangerousStructure,
-} from '@legis/shared'
+} from '@runwork/shared'
 
 /** SDK PermissionBehavior */
 type PermissionBehavior = 'allow' | 'deny'

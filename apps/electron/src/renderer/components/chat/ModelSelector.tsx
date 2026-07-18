@@ -28,14 +28,14 @@ import { useConversationModelOptional } from '@/hooks/useConversationSettings'
 import { useConversationIdOptional } from '@/contexts/session-context'
 import { getModelLogo, getChannelLogo, DefaultLogo } from '@/lib/model-logo'
 import { cn } from '@/lib/utils'
-import type { Channel, ModelOption } from '@legis/shared'
-import { useAuthGate, OFFICIAL_CHANNEL_ID } from '../../../legis'
-import { legisConfigAtom } from '../../../legis/config/legis-config'
+import type { Channel, ModelOption } from '@runwork/shared'
+import { useAuthGate, OFFICIAL_CHANNEL_ID } from '../../../runwork'
+import { runworkConfigAtom } from '../../../runwork/config/runwork-config'
 
 /**
  * 从渠道列表构建扁平化的模型选项
  *
- * 对于 Legis 官方渠道，额外按 legisConfig.selectedModelIds 过滤：
+ * 对于 RunWork 官方渠道，额外按 runworkConfig.selectedModelIds 过滤：
  * 设置页勾选状态（selectedModelIds，localStorage）和 channel.models[].enabled（channels.json）
  * 是两个独立数据源，登录同步时如果服务端模型列表变化，enabled 可能被重置为全 true。
  * 这里以 selectedModelIds 作为最终事实源，保证设置页和对话框显示一致。
@@ -59,7 +59,7 @@ function buildModelOptions(
 
     for (const model of channel.models) {
       if (!model.enabled) continue
-      // Legis 官方渠道：以 selectedModelIds 为准，避免登录同步 enabled 重置导致显示全部
+      // RunWork 官方渠道：以 selectedModelIds 为准，避免登录同步 enabled 重置导致显示全部
       if (channel.id === OFFICIAL_CHANNEL_ID && selectedSet && !selectedSet.has(model.id)) {
         continue
       }
@@ -123,7 +123,7 @@ export function ModelSelector({
   const channels = useAtomValue(channelsAtom)
   const channelsLoaded = useAtomValue(channelsLoadedAtom)
   const setChannels = useSetAtom(channelsAtom)
-  const legisConfig = useAtomValue(legisConfigAtom)
+  const runworkConfig = useAtomValue(runworkConfigAtom)
   const [localOpen, setLocalOpen] = React.useState(false)
   const [sharedOpen, setSharedOpen] = useAtom(modelSelectorOpenAtom)
   const open = useSharedOpenState ? sharedOpen : localOpen
@@ -142,8 +142,8 @@ export function ModelSelector({
   }, [open, setChannels])
 
   const modelOptions = React.useMemo(
-    () => buildModelOptions(channels, filterChannelId, filterChannelIds, legisConfig.selectedModelIds),
-    [channels, filterChannelId, filterChannelIds, legisConfig.selectedModelIds],
+    () => buildModelOptions(channels, filterChannelId, filterChannelIds, runworkConfig.selectedModelIds),
+    [channels, filterChannelId, filterChannelIds, runworkConfig.selectedModelIds],
   )
   const grouped = React.useMemo(() => groupByChannel(modelOptions), [modelOptions])
 

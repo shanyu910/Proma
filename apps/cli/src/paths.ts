@@ -1,11 +1,11 @@
 /**
  * 会话存储路径解析（electron-free）。
  *
- * Legis 主进程用 config-paths.ts 里的 getConfigDir()，其中通过 require('electron')
- * 判断 isPackaged 来在 .legis / .legis-dev 间切换——CLI 没有 electron 运行时，
+ * RunWork 主进程用 config-paths.ts 里的 getConfigDir()，其中通过 require('electron')
+ * 判断 isPackaged 来在 .runwork / .runwork-dev 间切换——CLI 没有 electron 运行时，
  * 因此这里独立实现一份等价逻辑：
- *   - 默认 ~/.legis
- *   - 环境变量 LEGIS_DEV=1 → ~/.legis-dev
+ *   - 默认 ~/.runwork
+ *   - 环境变量 RUNWORK_DEV=1 → ~/.runwork-dev
  *   - 显式 configDir 覆盖（CLI 的 --config-dir）优先级最高
  *
  * 与 config-paths.ts 的目录布局保持一致：
@@ -18,14 +18,14 @@ import { join } from 'node:path'
 export interface PathOptions {
   /** 显式指定配置目录（绝对路径）。优先级最高。 */
   configDir?: string
-  /** 使用开发目录 .legis-dev（等价于 LEGIS_DEV=1）。 */
+  /** 使用开发目录 .runwork-dev（等价于 RUNWORK_DEV=1）。 */
   dev?: boolean
 }
 
 export function resolveConfigDir(opts: PathOptions = {}): string {
   if (opts.configDir) return opts.configDir
-  const useDev = opts.dev || process.env.LEGIS_DEV === '1'
-  return join(homedir(), useDev ? '.legis-dev' : '.legis')
+  const useDev = opts.dev || process.env.RUNWORK_DEV === '1'
+  return join(homedir(), useDev ? '.runwork-dev' : '.runwork')
 }
 
 export function getSessionsIndexPath(opts: PathOptions = {}): string {

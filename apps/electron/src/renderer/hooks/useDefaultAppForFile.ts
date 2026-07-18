@@ -6,7 +6,7 @@
  */
 
 import * as React from 'react'
-import type { DefaultAppInfo, FileAccessOptions } from '@legis/shared'
+import type { DefaultAppInfo, FileAccessOptions } from '@runwork/shared'
 
 const rendererCache = new Map<string, DefaultAppInfo | null>()
 

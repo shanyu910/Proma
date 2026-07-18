@@ -53,7 +53,7 @@ import type {
   ChatSendInput,
   FileAttachment,
   AttachmentSaveInput,
-} from '@legis/shared'
+} from '@runwork/shared'
 
 interface ChatViewProps {
   conversationId: string

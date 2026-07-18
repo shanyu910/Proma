@@ -1,33 +1,61 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
   <!--
-    Legis 应用图标设计稿
-    规范: macOS Big Sur+ 图标规范
-      - 画布: 1024x1024
-      - 圆角矩形: 824x824 居中 (边距 100px)
-      - 圆角: 185px (~22.5%)
-    设计:
-      - 背景: 深菎青(#1e3a8a) → 深蓝(#0f172a) 双向线性渐变
-      - 符号: 饱满白色字母 "L"，顶部右上角 45° 几何切角
+    RunWork 应用图标设计稿
+    规范:
+      - 画布: 1024 x 1024
+      - macOS Big Sur+ 圆角矩形背景: 824 x 824, x=100, y=100, rx=185
+      - 背景渐变: 深菎青(#1e3a8a) -> 深蓝(#0f172a), 左上到右下
+
+    R 的结构说明:
+      - Path 1: 左侧竖干（含左上 45° 几何切角）
+      - Path 2: 右上半圆环 / 肚子（使用 A 圆弧命令，含内腔）
+      - Path 3: 右下斜腿（含右下 45° 几何切角）
   -->
 
   <defs>
-    <linearGradient id="legisBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="runworkBlue" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#1e3a8a"/>
       <stop offset="100%" stop-color="#0f172a"/>
     </linearGradient>
   </defs>
 
   <!-- macOS 风格圆角背景 -->
-  <rect x="100" y="100" width="824" height="824" rx="185" ry="185" fill="url(#legisBlue)"/>
+  <rect x="100" y="100" width="824" height="824" rx="185" ry="185" fill="url(#runworkBlue)"/>
 
-  <!-- 饱满白色 "L" + 顶部右上角 45° 切角 -->
-  <path d="M 342 300
-           L 446 300
-           L 502 356
-           L 502 656
-           L 712 656
-           L 712 712
-           L 342 712
-           Z"
-        fill="#FFFFFF"/>
+  <!-- Path 1: R 的左侧竖干（左上 45° 切角） -->
+  <path
+    d="M 300 266
+       L 356 210
+       L 420 210
+       L 420 830
+       L 300 830
+       Z"
+    fill="#FFFFFF"/>
+
+  <!-- Path 2: R 的右上半圆环 / 肚子（外轮廓 + 内腔，使用 A 圆弧命令） -->
+  <path
+    d="M 420 230
+       L 580 230
+       A 160 160 0 0 1 580 550
+       L 420 550
+       Z
+
+       M 420 314
+       L 496 314
+       A 76 76 0 0 1 496 466
+       L 420 466
+       Z"
+    fill="#FFFFFF"
+    fill-rule="evenodd"/>
+
+  <!-- Path 3: R 的右下斜腿（右下 45° 几何切角） -->
+  <path
+    d="M 420 514
+       L 520 514
+       L 738 774
+       L 682 830
+       L 626 830
+       L 420 626
+       Z"
+    fill="#FFFFFF"/>
 </svg>

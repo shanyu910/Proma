@@ -35,11 +35,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { LoadingIndicator } from '@/components/ui/loading-indicator'
-import { CodeBlock, MermaidBlock } from '@legis/ui'
-import { detectLanguage } from '@legis/core'
+import { CodeBlock, MermaidBlock } from '@runwork/ui'
+import { detectLanguage } from '@runwork/core'
 import { FilePathChip, isAbsoluteFilePath, isRelativeFilePath } from './file-path-chip'
 import type { HTMLAttributes, ComponentProps, ReactNode } from 'react'
-import type { FileAttachment } from '@legis/shared'
+import type { FileAttachment } from '@runwork/shared'
 
 // ===== Message 根容器 =====
 

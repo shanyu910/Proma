@@ -33,7 +33,7 @@ import {
   PROVIDER_DEFAULT_URLS,
   PROVIDER_LABELS,
   isAgentCompatibleProvider,
-} from '@legis/shared'
+} from '@runwork/shared'
 import type {
   Channel,
   ChannelCreateInput,
@@ -41,8 +41,8 @@ import type {
   ChannelTestResult,
   FetchModelsResult,
   ProviderType,
-} from '@legis/shared'
-import { resolveAnthropicMessagesUrl, resolveOpenAIChatCompletionsUrl } from '@legis/core'
+} from '@runwork/shared'
+import { resolveAnthropicMessagesUrl, resolveOpenAIChatCompletionsUrl } from '@runwork/core'
 import { getProviderLogo } from '@/lib/model-logo'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {

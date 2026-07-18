@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { AgentSessionMeta } from '@legis/shared'
+import type { AgentSessionMeta } from '@runwork/shared'
 import { buildExternalAgentRunActivation } from './external-agent-run'
 import type { ExternalAgentRunTab } from './external-agent-run'
 

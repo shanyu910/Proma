@@ -74,7 +74,7 @@ export function cleanupUpdater(): void {
 /**
  * 初始化自动更新
  *
- * Legis 品牌定制：暂时禁用后台自动检查。
+ * RunWork 品牌定制：暂时禁用后台自动检查。
  * 原因：国内访问 GitHub 不稳定，启动后 10 秒的 checkForUpdates() 会连
  * api.github.com，请求挂起 30-60 秒，期间主进程网络栈被占用，导致整个应用卡顿。
  * 等将来满足以下任一条件再恢复：

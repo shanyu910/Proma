@@ -8,7 +8,7 @@
 import * as React from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { RefreshCw, Loader2, CheckCircle2, AlertCircle, Info, Terminal, ChevronDown, ChevronUp, ExternalLink, RotateCw } from 'lucide-react'
-import type { EnvironmentCheckResult, RuntimeStatus } from '@legis/shared'
+import type { EnvironmentCheckResult, RuntimeStatus } from '@runwork/shared'
 import {
   SettingsSection,
   SettingsCard,
@@ -38,7 +38,7 @@ function UpdateCard(): React.ReactElement | null {
   const status = useAtomValue(updateStatusAtom)
   const [checking, setChecking] = React.useState(false)
   const [showReleaseNotes, setShowReleaseNotes] = React.useState(false)
-  const [release, setRelease] = React.useState<import('@legis/shared').GitHubRelease | null>(null)
+  const [release, setRelease] = React.useState<import('@runwork/shared').GitHubRelease | null>(null)
 
   // updater 不可用时不渲染
   if (!available) return null
@@ -444,7 +444,7 @@ function ShellEnvironmentCard(): React.ReactElement | null {
 export function AboutSettings(): React.ReactElement {
   return (
     <SettingsSection
-      title="关于 Legis"
+      title="关于 RunWork"
       description="面向法律行业的 AI Agent 桌面应用"
     >
       <SettingsCard>
@@ -457,13 +457,13 @@ export function AboutSettings(): React.ReactElement {
       </SettingsCard>
 
       {/* 自动更新卡片
-          Legis 品牌定制：暂时隐藏。
+          RunWork 品牌定制：暂时隐藏。
           原因：无 Apple 公证证书，electron-updater 在 macOS 上自动安装会失败；
           且后台检查已禁用（国内访问 GitHub 卡顿）。
           等将来买了 Apple Developer + 公证后，去掉 {false &&} 即可恢复。 */}
       {false && <UpdateCard />}
 
-      {/* 版本历史（Legis 品牌定制：暂时隐藏，国内用户访问 GitHub API 不稳定，
+      {/* 版本历史（RunWork 品牌定制：暂时隐藏，国内用户访问 GitHub API 不稳定，
           后续如需展示 changelog，应从 TOS 拉取） */}
       {false && <VersionHistory />}
 

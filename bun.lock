@@ -21,22 +21,22 @@
       },
     },
     "apps/cli": {
-      "name": "@legis/cli",
+      "name": "@runwork/cli",
       "version": "0.1.0",
       "bin": {
-        "legis": "./src/index.ts",
+        "runwork": "./src/index.ts",
       },
       "dependencies": {
-        "@legis/session-core": "workspace:*",
-        "@legis/shared": "workspace:*",
+        "@runwork/session-core": "workspace:*",
+        "@runwork/shared": "workspace:*",
       },
       "devDependencies": {
         "typescript": "^5.0.0",
       },
     },
     "apps/electron": {
-      "name": "@legis/electron",
-      "version": "0.0.3",
+      "name": "@runwork/electron",
+      "version": "0.0.5",
       "dependencies": {
         "@anthropic-ai/claude-agent-sdk": "0.3.201",
         "@anthropic-ai/sdk": "^0.93.0",
@@ -54,10 +54,6 @@
         "@emoji-mart/data": "^1.2.1",
         "@emoji-mart/react": "^1.1.1",
         "@larksuiteoapi/node-sdk": "^1.65.0",
-        "@legis/core": "workspace:*",
-        "@legis/session-core": "workspace:*",
-        "@legis/shared": "workspace:*",
-        "@legis/ui": "workspace:*",
         "@radix-ui/react-alert-dialog": "^1.1.15",
         "@radix-ui/react-collapsible": "^1.1.12",
         "@radix-ui/react-context-menu": "^2.2.16",
@@ -75,6 +71,10 @@
         "@radix-ui/react-toast": "^1.2.15",
         "@radix-ui/react-tooltip": "^1.2.8",
         "@react-symbols/icons": "^1.3.1",
+        "@runwork/core": "workspace:*",
+        "@runwork/session-core": "workspace:*",
+        "@runwork/shared": "workspace:*",
+        "@runwork/ui": "workspace:*",
         "@tailwindcss/typography": "^0.5.19",
         "@tiptap/core": "^3.19.0",
         "@tiptap/extension-code-block-lowlight": "^3.19.0",
@@ -153,10 +153,10 @@
       },
     },
     "packages/core": {
-      "name": "@legis/core",
+      "name": "@runwork/core",
       "version": "0.2.14",
       "dependencies": {
-        "@legis/shared": "workspace:*",
+        "@runwork/shared": "workspace:*",
         "highlight.js": "^11.11.1",
         "shiki": "^3.22.0",
       },
@@ -171,27 +171,27 @@
       },
     },
     "packages/session-core": {
-      "name": "@legis/session-core",
+      "name": "@runwork/session-core",
       "version": "0.1.1",
       "dependencies": {
-        "@legis/shared": "workspace:*",
+        "@runwork/shared": "workspace:*",
       },
       "devDependencies": {
         "typescript": "^5.0.0",
       },
     },
     "packages/shared": {
-      "name": "@legis/shared",
+      "name": "@runwork/shared",
       "version": "0.1.39",
       "devDependencies": {
         "typescript": "^5.0.0",
       },
     },
     "packages/ui": {
-      "name": "@legis/ui",
+      "name": "@runwork/ui",
       "version": "0.1.9",
       "dependencies": {
-        "@legis/core": "workspace:*",
+        "@runwork/core": "workspace:*",
         "beautiful-mermaid": "1.1.3",
         "mermaid": "11.15.0",
         "shiki": "^3.22.0",
@@ -390,18 +390,6 @@
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
     "@larksuiteoapi/node-sdk": ["@larksuiteoapi/node-sdk@1.65.0", "", { "dependencies": { "axios": "~1.13.3", "lodash.identity": "^3.0.0", "lodash.merge": "^4.6.2", "lodash.pickby": "^4.6.0", "protobufjs": "^7.2.6", "qs": "^6.14.2", "ws": "^8.19.0" } }, "sha512-SkMeiFvi4mMVGrmBBh50vWPOgAvfbcpdcAW+iryheFFHUmji49aDch/YtxsKGFtzFlL/rseQXFzNFL8+LdQQ5Q=="],
-
-    "@legis/cli": ["@legis/cli@workspace:apps/cli"],
-
-    "@legis/core": ["@legis/core@workspace:packages/core"],
-
-    "@legis/electron": ["@legis/electron@workspace:apps/electron"],
-
-    "@legis/session-core": ["@legis/session-core@workspace:packages/session-core"],
-
-    "@legis/shared": ["@legis/shared@workspace:packages/shared"],
-
-    "@legis/ui": ["@legis/ui@workspace:packages/ui"],
 
     "@malept/cross-spawn-promise": ["@malept/cross-spawn-promise@2.0.0", "", { "dependencies": { "cross-spawn": "^7.0.1" } }, "sha512-1DpKU0Z5ThltBwjNySMC14g0CkbyhCaz9FkhxqNsZI6uAPJXFS8cMXlBKo26FJ8ZuW6S9GCMcR9IO5k2X5/9Fg=="],
 
@@ -612,6 +600,18 @@
     "@rollup/rollup-win32-x64-gnu": ["@rollup/rollup-win32-x64-gnu@4.56.0", "", { "os": "win32", "cpu": "x64" }, "sha512-FeCnkPCTHQJFbiGG49KjV5YGW/8b9rrXAM2Mz2kiIoktq2qsJxRD5giEMEOD2lPdgs72upzefaUvS+nc8E3UzQ=="],
 
     "@rollup/rollup-win32-x64-msvc": ["@rollup/rollup-win32-x64-msvc@4.56.0", "", { "os": "win32", "cpu": "x64" }, "sha512-H8AE9Ur/t0+1VXujj90w0HrSOuv0Nq9r1vSZF2t5km20NTfosQsGGUXDaKdQZzwuLts7IyL1fYT4hM95TI9c4g=="],
+
+    "@runwork/cli": ["@runwork/cli@workspace:apps/cli"],
+
+    "@runwork/core": ["@runwork/core@workspace:packages/core"],
+
+    "@runwork/electron": ["@runwork/electron@workspace:apps/electron"],
+
+    "@runwork/session-core": ["@runwork/session-core@workspace:packages/session-core"],
+
+    "@runwork/shared": ["@runwork/shared@workspace:packages/shared"],
+
+    "@runwork/ui": ["@runwork/ui@workspace:packages/ui"],
 
     "@shikijs/core": ["@shikijs/core@3.22.0", "", { "dependencies": { "@shikijs/types": "3.22.0", "@shikijs/vscode-textmate": "^10.0.2", "@types/hast": "^3.0.4", "hast-util-to-html": "^9.0.5" } }, "sha512-iAlTtSDDbJiRpvgL5ugKEATDtHdUVkqgHDm/gbD2ZS9c88mx7G1zSYjjOxp5Qa0eaW0MAQosFRmJSk354PRoQA=="],
 
@@ -2401,8 +2401,6 @@
 
     "@isaacs/cliui/wrap-ansi": ["wrap-ansi@8.1.0", "", { "dependencies": { "ansi-styles": "^6.1.0", "string-width": "^5.0.1", "strip-ansi": "^7.0.1" } }, "sha512-si7QWI6zUMq56bESFvagtmzMdGOtoxfR+Sez11Mobfc7tm+VkUckk9bW2UeffTGVUbOksxmSw0AA2gs8g71NCQ=="],
 
-    "@legis/electron/dompurify": ["dompurify@3.4.5", "", { "optionalDependencies": { "@types/trusted-types": "^2.0.7" } }, "sha512-OrwIBKsdNSVEeubdJ1HBv/wNENRM9ytAVCv7YXt//A3vPdVMNuACRqK9mXCGCBW2ln7BT/A4X0jXHo2Gu89miA=="],
-
     "@malept/flatpak-bundler/fs-extra": ["fs-extra@9.1.0", "", { "dependencies": { "at-least-node": "^1.0.0", "graceful-fs": "^4.2.0", "jsonfile": "^6.0.1", "universalify": "^2.0.0" } }, "sha512-hcg3ZmepS30/7BSFqRvoo3DOMQu7IjqxO5nCDt+zM9XWjb33Wg7ziNT+Qvqbuc3+gWpzO02JubVyk2G4Zvo1OQ=="],
 
     "@npmcli/move-file/rimraf": ["rimraf@3.0.2", "", { "dependencies": { "glob": "^7.1.3" }, "bin": { "rimraf": "bin.js" } }, "sha512-JZkJMZkAGFFPP2YqXZXPbMlMBgsxzE8ILs4lMIX/2o0L9UBw9O/Y3o6wFw/i9YLapcUJWwqbi3kdxIPdC62TIA=="],
@@ -2426,6 +2424,8 @@
     "@radix-ui/react-separator/@radix-ui/react-primitive": ["@radix-ui/react-primitive@2.1.4", "", { "dependencies": { "@radix-ui/react-slot": "1.2.4" }, "peerDependencies": { "@types/react": "*", "@types/react-dom": "*", "react": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc", "react-dom": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc" }, "optionalPeers": ["@types/react", "@types/react-dom"] }, "sha512-9hQc4+GNVtJAIEPEqlYqW5RiYdrr8ea5XQ0ZOnD6fgru+83kqT15mq2OCcbe8KnjRZl5vF3ks69AKz3kh1jrhg=="],
 
     "@radix-ui/react-tooltip/@radix-ui/react-slot": ["@radix-ui/react-slot@1.2.3", "", { "dependencies": { "@radix-ui/react-compose-refs": "1.1.2" }, "peerDependencies": { "@types/react": "*", "react": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc" }, "optionalPeers": ["@types/react"] }, "sha512-aeNmHnBxbi2St0au6VBVC7JXFlhLlOnvIIlePNniyUNAClzmtAUEY8/pBiK3iHjufOlwA+c20/8jngo7xcrg8A=="],
+
+    "@runwork/electron/dompurify": ["dompurify@3.4.5", "", { "optionalDependencies": { "@types/trusted-types": "^2.0.7" } }, "sha512-OrwIBKsdNSVEeubdJ1HBv/wNENRM9ytAVCv7YXt//A3vPdVMNuACRqK9mXCGCBW2ln7BT/A4X0jXHo2Gu89miA=="],
 
     "@shikijs/transformers/@shikijs/core": ["@shikijs/core@3.23.0", "", { "dependencies": { "@shikijs/types": "3.23.0", "@shikijs/vscode-textmate": "^10.0.2", "@types/hast": "^3.0.4", "hast-util-to-html": "^9.0.5" } }, "sha512-NSWQz0riNb67xthdm5br6lAkvpDJRTgB36fxlo37ZzM2yq0PQFFzbd8psqC2XMPgCzo1fW6cVi18+ArJ44wqgA=="],
 

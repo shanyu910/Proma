@@ -18,7 +18,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { SettingsCard } from '@/components/settings/primitives'
 import { SkillFilesPanel } from '@/components/settings/SkillFilesPanel'
 import { cn } from '@/lib/utils'
-import type { SkillMeta } from '@legis/shared'
+import type { SkillMeta } from '@runwork/shared'
 import { extractSkillBody, rebuildSkillMd } from './skillMdUtils'
 
 interface SkillDetailSheetProps {
@@ -127,7 +127,7 @@ function SkillDetailBody({
   }
 
   const sourceLabel = isBuiltin
-    ? 'Legis 内置'
+    ? 'RunWork 内置'
     : skill.importSource
       ? `从 ${skill.importSource.sourceWorkspaceName} 导入`
       : '当前工作区'

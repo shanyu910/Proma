@@ -24,7 +24,7 @@ import {
   installerManifestAtom,
   type InstallerDownloadState,
 } from '@/atoms/environment'
-import type { InstallerDownloadRequest } from '@legis/shared'
+import type { InstallerDownloadRequest } from '@runwork/shared'
 
 type CheckStatus = 'checking' | 'success' | 'warning' | 'error'
 

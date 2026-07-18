@@ -10,7 +10,7 @@ import { randomUUID } from 'node:crypto'
 import { app } from 'electron'
 import { createConversation, appendMessage } from './conversation-manager'
 import { getConversationAttachmentsDir } from './config-paths'
-import type { ConversationMeta, FileAttachment, ChatMessage } from '@legis/shared'
+import type { ConversationMeta, FileAttachment, ChatMessage } from '@runwork/shared'
 
 /**
  * 获取教程文件路径
@@ -67,11 +67,11 @@ export function createWelcomeConversation(): ConversationMeta | null {
 
   try {
     // 1. 创建对话
-    const meta = createConversation('欢迎使用 Legis')
+    const meta = createConversation('欢迎使用 RunWork')
 
     // 2. 保存教程文件为附件
     const attachmentId = randomUUID()
-    const attachmentFilename = 'Legis 使用教程.md'
+    const attachmentFilename = 'RunWork 使用教程.md'
     const localPath = `${meta.id}/${attachmentId}.md`
     const dir = getConversationAttachmentsDir(meta.id)
     const fullPath = join(dir, `${attachmentId}.md`)
@@ -93,7 +93,7 @@ export function createWelcomeConversation(): ConversationMeta | null {
     const userMessage: ChatMessage = {
       id: randomUUID(),
       role: 'user',
-      content: '你好，我是一名律师，希望用 Legis 提升工作效率。这是使用教程，请作为参考。',
+      content: '你好，我是一名律师，希望用 RunWork 提升工作效率。这是使用教程，请作为参考。',
       createdAt: now,
       attachments: [attachment],
     }
@@ -103,7 +103,7 @@ export function createWelcomeConversation(): ConversationMeta | null {
     const assistantMessage: ChatMessage = {
       id: randomUUID(),
       role: 'assistant',
-      content: `你好，欢迎来到 Legis。我是你的法律 AI 助手，可以帮你处理日常法律工作：
+      content: `你好，欢迎来到 RunWork。我是你的法律 AI 助手，可以帮你处理日常法律工作：
 
 • **合同审查与起草** — 上传合同，我逐条审查风险、标注关键条款
 • **法律研究** — 检索法条、梳理裁判规则、对比相似案例
@@ -112,7 +112,7 @@ export function createWelcomeConversation(): ConversationMeta | null {
 
 直接在下方描述需求，或拖入文件开始即可。`,
       createdAt: now + 1,
-      model: 'Legis',
+      model: 'RunWork',
     }
     appendMessage(meta.id, assistantMessage)
 

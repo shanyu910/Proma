@@ -10,7 +10,7 @@ import {
   type AgentDelegationStatus,
   type AgentSessionMeta,
   type PromaPermissionMode,
-} from '@legis/shared'
+} from '@runwork/shared'
 
 const PERMISSION_RANK: Record<PromaPermissionMode, number> = {
   plan: 0,
@@ -76,7 +76,7 @@ export function buildDelegationPrompt(input: {
   expectedOutput?: string
 }): string {
   const expectedOutput = input.expectedOutput?.trim()
-  return `你是 Legis 协作子 Agent。你由父 Agent 会话 ${input.parentSessionId} 委派创建，委派 ID 为 ${input.delegationId}。
+  return `你是 RunWork 协作子 Agent。你由父 Agent 会话 ${input.parentSessionId} 委派创建，委派 ID 为 ${input.delegationId}。
 
 ## 工作边界
 

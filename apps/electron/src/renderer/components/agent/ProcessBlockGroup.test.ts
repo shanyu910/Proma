@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { buildAssistantTurnRenderItems, buildProcessGroupToolNames } from './ProcessBlockGroup'
-import type { SDKContentBlock } from '@legis/shared'
+import type { SDKContentBlock } from '@runwork/shared'
 
 const tool = (id: string, name = 'Read'): SDKContentBlock => ({
   type: 'tool_use',

@@ -19,7 +19,7 @@ import {
   type InstallerDownloadResult,
   type InstallerProgressPayload,
   type InstallerSource,
-} from '@legis/shared'
+} from '@runwork/shared'
 
 /** 已注册的可取消下载：key -> cancel() */
 const activeDownloads = new Map<string, () => void>()

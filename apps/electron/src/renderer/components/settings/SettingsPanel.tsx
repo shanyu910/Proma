@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ChannelSettings } from "./ChannelSettings";
 import { GeneralSettings } from "./GeneralSettings";
-import { ModelManagementPanel } from "../../../legis/settings/ModelManagementPanel";
+import { ModelManagementPanel } from "../../../runwork/settings/ModelManagementPanel";
 import { ProxySettings } from "./ProxySettings";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { AboutSettings } from "./AboutSettings";

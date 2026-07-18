@@ -1,4 +1,4 @@
-import type { SDKMessage } from '@legis/shared'
+import type { SDKMessage } from '@runwork/shared'
 import type { MessageGroup } from './SDKMessageRenderer'
 
 interface BuildLiveGroupSetOptions {

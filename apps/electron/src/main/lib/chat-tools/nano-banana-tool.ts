@@ -3,11 +3,11 @@
  *
  * 基于 Gemini Image Generation API 提供 AI 生图能力。
  * 支持文生图、参考图编辑、多轮连续修改。
- * 凭据存储在 ~/.legis/chat-tools.json 的 toolCredentials 中。
+ * 凭据存储在 ~/.runwork/chat-tools.json 的 toolCredentials 中。
  */
 
-import type { ToolCall, ToolResult, ToolDefinition } from '@legis/core'
-import type { ChatToolMeta, FileAttachment } from '@legis/shared'
+import type { ToolCall, ToolResult, ToolDefinition } from '@runwork/core'
+import type { ChatToolMeta, FileAttachment } from '@runwork/shared'
 import { randomUUID } from 'node:crypto'
 import { getToolCredentials } from '../chat-tool-config'
 import { saveAttachment, readAttachmentAsBase64, isImageAttachment } from '../attachment-service'

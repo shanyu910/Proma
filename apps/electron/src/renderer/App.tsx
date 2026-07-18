@@ -11,8 +11,8 @@ import { conversationsAtom } from './atoms/chat-atoms'
 import { environmentCheckDialogOpenAtom } from './atoms/environment'
 import { tabsAtom, activeTabIdAtom, openTab, TUTORIAL_TAB_ID } from './atoms/tab-atoms'
 import type { AppShellContextType } from './contexts/AppShellContext'
-// Legis 认证模块（软关卡 + 弹窗登录）
-import { AuthInitializer, LoginModal } from '../legis'
+// RunWork 认证模块（软关卡 + 弹窗登录）
+import { AuthInitializer, LoginModal } from '../runwork'
 
 export default function App(): React.ReactElement {
   const store = useStore()
@@ -43,7 +43,7 @@ export default function App(): React.ReactElement {
 
     if (openTutorial) {
       const tabs = store.get(tabsAtom)
-      const result = openTab(tabs, { type: 'tutorial', sessionId: TUTORIAL_TAB_ID, title: 'Legis 使用教程' })
+      const result = openTab(tabs, { type: 'tutorial', sessionId: TUTORIAL_TAB_ID, title: 'RunWork 使用教程' })
       store.set(tabsAtom, result.tabs)
       store.set(activeTabIdAtom, result.activeTabId)
       return

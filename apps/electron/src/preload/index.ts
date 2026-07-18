@@ -6,7 +6,7 @@
  */
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import { IPC_CHANNELS, CHANNEL_IPC_CHANNELS, CHAT_IPC_CHANNELS, AGENT_IPC_CHANNELS, ENVIRONMENT_IPC_CHANNELS, INSTALLER_IPC_CHANNELS, PROXY_IPC_CHANNELS, GITHUB_RELEASE_IPC_CHANNELS, SYSTEM_PROMPT_IPC_CHANNELS, CHAT_TOOL_IPC_CHANNELS, FEISHU_IPC_CHANNELS, DINGTALK_IPC_CHANNELS, WECHAT_IPC_CHANNELS, AUTOMATION_IPC_CHANNELS } from '@legis/shared'
+import { IPC_CHANNELS, CHANNEL_IPC_CHANNELS, CHAT_IPC_CHANNELS, AGENT_IPC_CHANNELS, ENVIRONMENT_IPC_CHANNELS, INSTALLER_IPC_CHANNELS, PROXY_IPC_CHANNELS, GITHUB_RELEASE_IPC_CHANNELS, SYSTEM_PROMPT_IPC_CHANNELS, CHAT_TOOL_IPC_CHANNELS, FEISHU_IPC_CHANNELS, DINGTALK_IPC_CHANNELS, WECHAT_IPC_CHANNELS, AUTOMATION_IPC_CHANNELS } from '@runwork/shared'
 import { USER_PROFILE_IPC_CHANNELS, SETTINGS_IPC_CHANNELS, SCRATCH_PAD_IPC_CHANNELS, APP_ICON_IPC_CHANNELS, DOCK_BADGE_IPC_CHANNELS, STORAGE_IPC_CHANNELS } from '../types'
 import type {
   RuntimeStatus,
@@ -104,7 +104,7 @@ import type {
   Automation,
   CreateAutomationInput,
   UpdateAutomationInput,
-} from '@legis/shared'
+} from '@runwork/shared'
 import type {
   UserProfile,
   AppSettings,
@@ -153,19 +153,19 @@ export interface ElectronAPI {
   getGitRepoStatus: (dirPath: string) => Promise<GitRepoStatus | null>
 
   /** 获取未暂存的变更文件列表 */
-  getUnstagedChanges: (dirPath: string, sessionPath?: string, workspaceFilesPath?: string, extraPaths?: string[], sessionId?: string) => Promise<import('@legis/shared').UnstagedChangesResult>
+  getUnstagedChanges: (dirPath: string, sessionPath?: string, workspaceFilesPath?: string, extraPaths?: string[], sessionId?: string) => Promise<import('@runwork/shared').UnstagedChangesResult>
   /** 获取单个文件的 diff */
-  getFileDiff: (input: import('@legis/shared').GetFileDiffInput) => Promise<string>
+  getFileDiff: (input: import('@runwork/shared').GetFileDiffInput) => Promise<string>
   /** 获取未追踪文件内容 */
-  getUntrackedContent: (input: import('@legis/shared').GetFileDiffInput) => Promise<string>
+  getUntrackedContent: (input: import('@runwork/shared').GetFileDiffInput) => Promise<string>
   /** 还原文件变更 */
-  revertFile: (input: import('@legis/shared').RevertFileInput) => Promise<void>
+  revertFile: (input: import('@runwork/shared').RevertFileInput) => Promise<void>
   /** 获取文件新旧版本内容 */
-  getDiffContents: (input: import('@legis/shared').GetFileDiffInput) => Promise<{ oldContent: string; newContent: string } | null>
+  getDiffContents: (input: import('@runwork/shared').GetFileDiffInput) => Promise<{ oldContent: string; newContent: string } | null>
   /** 列出 Git Worktree */
-  listWorktrees: (repoPath: string, sessionId: string) => Promise<import('@legis/shared').WorktreeInfo[]>
+  listWorktrees: (repoPath: string, sessionId: string) => Promise<import('@runwork/shared').WorktreeInfo[]>
   /** 获取 Worktree 相对于基准分支的全量变更 */
-  getWorktreeChanges: (worktreePath: string, baseBranch: string, sessionId: string) => Promise<import('@legis/shared').UnstagedChangesResult>
+  getWorktreeChanges: (worktreePath: string, baseBranch: string, sessionId: string) => Promise<import('@runwork/shared').UnstagedChangesResult>
   /** 在独立窗口打开当前文件预览 */
   openDetachedPreview: (input: DetachedPreviewWindowInput) => Promise<string | null>
   /** 获取独立预览窗口数据 */
@@ -502,7 +502,7 @@ export interface ElectronAPI {
   saveWorkspaceMcpConfig: (workspaceSlug: string, config: WorkspaceMcpConfig) => Promise<void>
 
   /** 测试 MCP 服务器连接 */
-  testMcpServer: (name: string, entry: import('@legis/shared').McpServerEntry) => Promise<{ success: boolean; message: string }>
+  testMcpServer: (name: string, entry: import('@runwork/shared').McpServerEntry) => Promise<{ success: boolean; message: string }>
 
   /** 启用或关闭 Proma 内置 MCP */
   setBuiltinMcpEnabled: (workspaceSlug: string, id: string, enabled: boolean) => Promise<WorkspaceCapabilities>
@@ -522,7 +522,7 @@ export interface ElectronAPI {
   /** 获取其他工作区的 Skill 列表 */
   getOtherWorkspaceSkills: (currentSlug: string) => Promise<OtherWorkspaceSkillsGroup[]>
 
-  /** 获取默认 Skills 的 slug 列表（来自 ~/.legis/default-skills/） */
+  /** 获取默认 Skills 的 slug 列表（来自 ~/.runwork/default-skills/） */
   getDefaultSkillSlugs: () => Promise<string[]>
 
   /** 从其他工作区导入 Skill */
@@ -538,10 +538,10 @@ export interface ElectronAPI {
   writeSkillContent: (workspaceSlug: string, skillSlug: string, content: string) => Promise<void>
 
   /** 列出 Skill 目录下的子文件树（不含 SKILL.md） */
-  listSkillFiles: (workspaceSlug: string, skillSlug: string) => Promise<import('@legis/shared').SkillFileNode[]>
+  listSkillFiles: (workspaceSlug: string, skillSlug: string) => Promise<import('@runwork/shared').SkillFileNode[]>
 
   /** 读取 Skill 目录下的子文件内容 */
-  readSkillFile: (workspaceSlug: string, skillSlug: string, relativePath: string) => Promise<import('@legis/shared').SkillFileContent>
+  readSkillFile: (workspaceSlug: string, skillSlug: string, relativePath: string) => Promise<import('@runwork/shared').SkillFileContent>
 
   /** 写入 Skill 目录下的子文件内容（文本） */
   writeSkillFile: (workspaceSlug: string, skillSlug: string, relativePath: string, content: string) => Promise<void>
@@ -559,16 +559,16 @@ export interface ElectronAPI {
   getWorkspaceMemorySummary: (workspaceSlug: string) => Promise<WorkspaceMemorySummary>
 
   /** 读取工作区 CLAUDE.md */
-  readWorkspaceClaudeMd: (workspaceSlug: string) => Promise<import('@legis/shared').SkillFileContent>
+  readWorkspaceClaudeMd: (workspaceSlug: string) => Promise<import('@runwork/shared').SkillFileContent>
 
   /** 写入工作区 CLAUDE.md */
   writeWorkspaceClaudeMd: (workspaceSlug: string, content: string) => Promise<void>
 
   /** 列出工作区 auto memory 文件树 */
-  listWorkspaceAutoMemoryFiles: (workspaceSlug: string) => Promise<import('@legis/shared').SkillFileNode[]>
+  listWorkspaceAutoMemoryFiles: (workspaceSlug: string) => Promise<import('@runwork/shared').SkillFileNode[]>
 
   /** 读取工作区 auto memory 文件 */
-  readWorkspaceAutoMemoryFile: (workspaceSlug: string, relativePath: string) => Promise<import('@legis/shared').SkillFileContent>
+  readWorkspaceAutoMemoryFile: (workspaceSlug: string, relativePath: string) => Promise<import('@runwork/shared').SkillFileContent>
 
   /** 写入工作区 auto memory 文件 */
   writeWorkspaceAutoMemoryFile: (workspaceSlug: string, relativePath: string, content: string) => Promise<void>
@@ -676,11 +676,11 @@ export interface ElectronAPI {
   /** 获取工作区附加文件列表 */
   getWorkspaceAttachedFiles: (workspaceSlug: string) => Promise<string[]>
   /** 获取工作区 worktree 仓库配置列表 */
-  getWorktreeRepos: (workspaceSlug: string) => Promise<import('@legis/shared').WorkspaceWorktreeRepo[]>
+  getWorktreeRepos: (workspaceSlug: string) => Promise<import('@runwork/shared').WorkspaceWorktreeRepo[]>
   /** 添加 worktree 仓库到工作区配置 */
-  addWorktreeRepo: (workspaceSlug: string, repo: import('@legis/shared').WorkspaceWorktreeRepo) => Promise<import('@legis/shared').WorkspaceWorktreeRepo[]>
+  addWorktreeRepo: (workspaceSlug: string, repo: import('@runwork/shared').WorkspaceWorktreeRepo) => Promise<import('@runwork/shared').WorkspaceWorktreeRepo[]>
   /** 从工作区配置移除 worktree 仓库 */
-  removeWorktreeRepo: (workspaceSlug: string, repoPath: string) => Promise<import('@legis/shared').WorkspaceWorktreeRepo[]>
+  removeWorktreeRepo: (workspaceSlug: string, repoPath: string) => Promise<import('@runwork/shared').WorkspaceWorktreeRepo[]>
 
   // ===== Agent 文件系统操作 =====
 
@@ -700,13 +700,13 @@ export interface ElectronAPI {
   writeClipboardPreview: (filename: string, content: string) => Promise<string>
 
   /** 用系统默认应用打开任意文件（无工作区限制） */
-  systemOpenFile: (filePath: string, appName?: string, access?: import('@legis/shared').FileAccessOptions) => Promise<void>
+  systemOpenFile: (filePath: string, appName?: string, access?: import('@runwork/shared').FileAccessOptions) => Promise<void>
 
   /** 扫描系统中可用的编辑器应用（仅 macOS） */
-  scanEditors: () => Promise<import('@legis/shared').EditorApp[]>
+  scanEditors: () => Promise<import('@runwork/shared').EditorApp[]>
 
   /** 查询本机为该文件类型注册的默认打开应用（含图标 dataURL） */
-  getDefaultAppForFile: (filePath: string, access?: import('@legis/shared').FileAccessOptions) => Promise<import('@legis/shared').DefaultAppInfo | null>
+  getDefaultAppForFile: (filePath: string, access?: import('@runwork/shared').FileAccessOptions) => Promise<import('@runwork/shared').DefaultAppInfo | null>
 
   /** 在系统文件管理器中显示文件 */
   showInFolder: (filePath: string) => Promise<void>
@@ -715,25 +715,25 @@ export interface ElectronAPI {
   showItemInFolder: (filePath: string, candidateBasePaths?: string[]) => Promise<void>
 
   /** 解析文件路径并读取内容（供内联预览使用） */
-  resolveAndReadFile: (filePath: string, access?: import('@legis/shared').FileAccessOptions) => Promise<{ resolvedPath: string; content: string } | null>
+  resolveAndReadFile: (filePath: string, access?: import('@runwork/shared').FileAccessOptions) => Promise<{ resolvedPath: string; content: string } | null>
 
   /** 写入文本文件（供 Markdown 内联编辑使用） */
-  writeTextFile: (filePath: string, content: string, access?: import('@legis/shared').FileAccessOptions) => Promise<boolean>
+  writeTextFile: (filePath: string, content: string, access?: import('@runwork/shared').FileAccessOptions) => Promise<boolean>
 
   /** 仅解析文件路径（供 PDF/图片等用 file:// 加载） */
-  resolveFilePath: (filePath: string, access?: import('@legis/shared').FileAccessOptions) => Promise<import('@legis/shared').ResolvedFileUrl | null>
+  resolveFilePath: (filePath: string, access?: import('@runwork/shared').FileAccessOptions) => Promise<import('@runwork/shared').ResolvedFileUrl | null>
 
   /** 为内联 PDF 预览生成临时 HTML 文件，返回文件路径 */
-  preparePdfPreview: (filePath: string, access?: import('@legis/shared').FileAccessOptions) => Promise<{ tmpHtmlUrl: string } | null>
+  preparePdfPreview: (filePath: string, access?: import('@runwork/shared').FileAccessOptions) => Promise<{ tmpHtmlUrl: string } | null>
 
   /** 读取文件为 base64（带路径校验，供内联图片预览等） */
-  readBinaryBase64: (filePath: string, access?: import('@legis/shared').FileAccessOptions, maxSize?: number) => Promise<string | null>
+  readBinaryBase64: (filePath: string, access?: import('@runwork/shared').FileAccessOptions, maxSize?: number) => Promise<string | null>
 
   /** DOCX 转 HTML（内联预览） */
-  docxToHtml: (filePath: string, access?: import('@legis/shared').FileAccessOptions) => Promise<{ resolvedPath: string; html: string } | null>
+  docxToHtml: (filePath: string, access?: import('@runwork/shared').FileAccessOptions) => Promise<{ resolvedPath: string; html: string } | null>
 
   /** XLSX/PPTX 转 HTML（内联预览） */
-  officeToHtml: (filePath: string, access?: import('@legis/shared').FileAccessOptions) => Promise<import('@legis/shared').OfficePreviewResult | null>
+  officeToHtml: (filePath: string, access?: import('@runwork/shared').FileAccessOptions) => Promise<import('@runwork/shared').OfficePreviewResult | null>
 
   /** 截图导出：将 HTML 渲染为 PNG 并复制到剪贴板或保存文件 */
   screenshotCapture: (input: { html: string; isDark: boolean; width?: number; mode: 'clipboard' | 'file'; css?: string; themeClass?: string }) => Promise<{ success: boolean; message: string; filePath?: string }>
@@ -745,19 +745,19 @@ export interface ElectronAPI {
   moveFile: (filePath: string, targetDir: string) => Promise<void>
 
   /** 列出附加目录内容 */
-  listAttachedDirectory: (dirPath: string, access?: import('@legis/shared').FileAccessOptions) => Promise<FileEntry[]>
+  listAttachedDirectory: (dirPath: string, access?: import('@runwork/shared').FileAccessOptions) => Promise<FileEntry[]>
 
   /** 读取附加目录文件内容为 base64（限制在已附加目录范围内） */
   readAttachedFile: (filePath: string, sessionId?: string, workspaceSlug?: string) => Promise<string>
 
   /** 在文件管理器中显示附加目录文件 */
-  showAttachedInFolder: (filePath: string, access?: import('@legis/shared').FileAccessOptions) => Promise<void>
+  showAttachedInFolder: (filePath: string, access?: import('@runwork/shared').FileAccessOptions) => Promise<void>
 
   /** 重命名附加目录文件/目录（无工作区路径限制） */
-  renameAttachedFile: (filePath: string, newName: string, access?: import('@legis/shared').FileAccessOptions) => Promise<void>
+  renameAttachedFile: (filePath: string, newName: string, access?: import('@runwork/shared').FileAccessOptions) => Promise<void>
 
   /** 移动附加目录文件/目录（无工作区路径限制） */
-  moveAttachedFile: (filePath: string, targetDir: string, access?: import('@legis/shared').FileAccessOptions) => Promise<void>
+  moveAttachedFile: (filePath: string, targetDir: string, access?: import('@runwork/shared').FileAccessOptions) => Promise<void>
 
   /** 检查路径类型（文件 or 目录），用于拖拽检测 */
   checkPathsType: (paths: string[]) => Promise<{ directories: string[]; files: string[] }>
@@ -849,9 +849,9 @@ export interface ElectronAPI {
   // --- 多 Bot v2 API ---
 
   /** 获取多 Bot 配置 */
-  getFeishuMultiConfig: () => Promise<import('@legis/shared').FeishuMultiBotConfig>
+  getFeishuMultiConfig: () => Promise<import('@runwork/shared').FeishuMultiBotConfig>
   /** 保存单个 Bot 配置 */
-  saveFeishuBotConfig: (input: import('@legis/shared').FeishuBotConfigInput) => Promise<import('@legis/shared').FeishuBotConfig>
+  saveFeishuBotConfig: (input: import('@runwork/shared').FeishuBotConfigInput) => Promise<import('@runwork/shared').FeishuBotConfig>
   /** 获取单个 Bot 解密后的 App Secret */
   getDecryptedFeishuBotSecret: (botId: string) => Promise<string>
   /** 删除 Bot */
@@ -861,18 +861,18 @@ export interface ElectronAPI {
   /** 停止单个 Bot */
   stopFeishuBot: (botId: string) => Promise<void>
   /** 获取多 Bot 状态 */
-  getFeishuMultiStatus: () => Promise<import('@legis/shared').FeishuMultiBridgeState>
+  getFeishuMultiStatus: () => Promise<import('@runwork/shared').FeishuMultiBridgeState>
 
   // --- 扫码注册 ---
 
   /** 启动扫码注册流程，等待用户扫码 + 飞书确认后返回 App ID/Secret */
-  registerFeishuApp: () => Promise<import('@legis/shared').FeishuRegisterAppResult>
+  registerFeishuApp: () => Promise<import('@runwork/shared').FeishuRegisterAppResult>
   /** 取消正在进行的扫码注册流程 */
   cancelFeishuRegistration: () => Promise<void>
   /** 监听二维码 URL 生成 */
-  onFeishuRegisterQrcode: (callback: (payload: import('@legis/shared').FeishuRegisterAppQRCode) => void) => () => void
+  onFeishuRegisterQrcode: (callback: (payload: import('@runwork/shared').FeishuRegisterAppQRCode) => void) => () => void
   /** 监听注册流程状态变化 */
-  onFeishuRegisterStatus: (callback: (payload: import('@legis/shared').FeishuRegisterAppStatus) => void) => () => void
+  onFeishuRegisterStatus: (callback: (payload: import('@runwork/shared').FeishuRegisterAppStatus) => void) => () => void
 
   // ===== 钉钉集成 =====
 
@@ -896,9 +896,9 @@ export interface ElectronAPI {
   // --- 钉钉多 Bot v2 API ---
 
   /** 获取多 Bot 配置 */
-  getDingTalkMultiConfig: () => Promise<import('@legis/shared').DingTalkMultiBotConfig>
+  getDingTalkMultiConfig: () => Promise<import('@runwork/shared').DingTalkMultiBotConfig>
   /** 保存单个 Bot 配置 */
-  saveDingTalkBotConfig: (input: import('@legis/shared').DingTalkBotConfigInput) => Promise<import('@legis/shared').DingTalkBotConfig>
+  saveDingTalkBotConfig: (input: import('@runwork/shared').DingTalkBotConfigInput) => Promise<import('@runwork/shared').DingTalkBotConfig>
   /** 获取单个 Bot 解密后的 Client Secret */
   getDecryptedDingTalkBotSecret: (botId: string) => Promise<string>
   /** 删除 Bot */
@@ -908,7 +908,7 @@ export interface ElectronAPI {
   /** 停止单个 Bot */
   stopDingTalkBot: (botId: string) => Promise<void>
   /** 获取多 Bot 状态 */
-  getDingTalkMultiStatus: () => Promise<import('@legis/shared').DingTalkMultiBridgeState>
+  getDingTalkMultiStatus: () => Promise<import('@runwork/shared').DingTalkMultiBridgeState>
 
   // ===== 微信集成 =====
 
@@ -1038,21 +1038,21 @@ export interface ElectronAPI {
   /** 订阅任务列表变更事件 */
   onAutomationChanged: (callback: () => void) => () => void
 
-  // ===== Legis 认证安全存储（Keychain 加密） =====
+  // ===== RunWork 认证安全存储（Keychain 加密） =====
   authSecure: {
     getToken: () => Promise<string | null>
     setToken: (token: string) => Promise<void>
     clearToken: () => Promise<void>
   }
 
-  // ===== Legis SK 内存存储（仅内存，不写磁盘） =====
-  legisSK: {
+  // ===== RunWork SK 内存存储（仅内存，不写磁盘） =====
+  runworkSK: {
     setSK: (sk: string) => Promise<void>
     clearSK: () => Promise<void>
   }
 
-  // ===== Legis 官方渠道同步 =====
-  legisChannel: {
+  // ===== RunWork 官方渠道同步 =====
+  runworkChannel: {
     upsertOfficial: (input: {
       baseUrl: string
       models: { id: string; name: string; enabled: boolean }[]
@@ -1090,19 +1090,19 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_UNSTAGED_CHANGES, dirPath, sessionPath, workspaceFilesPath, extraPaths, sessionId)
   },
 
-  getFileDiff: (input: import('@legis/shared').GetFileDiffInput) => {
+  getFileDiff: (input: import('@runwork/shared').GetFileDiffInput) => {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_FILE_DIFF, input)
   },
 
-  getUntrackedContent: (input: import('@legis/shared').GetFileDiffInput) => {
+  getUntrackedContent: (input: import('@runwork/shared').GetFileDiffInput) => {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_UNTRACKED_CONTENT, input)
   },
 
-  revertFile: (input: import('@legis/shared').RevertFileInput) => {
+  revertFile: (input: import('@runwork/shared').RevertFileInput) => {
     return ipcRenderer.invoke(IPC_CHANNELS.REVERT_FILE, input)
   },
 
-  getDiffContents: (input: import('@legis/shared').GetFileDiffInput) => {
+  getDiffContents: (input: import('@runwork/shared').GetFileDiffInput) => {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_DIFF_CONTENTS, input)
   },
 
@@ -1550,7 +1550,7 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke(AGENT_IPC_CHANNELS.SAVE_MCP_CONFIG, workspaceSlug, config)
   },
 
-  testMcpServer: (name: string, entry: import('@legis/shared').McpServerEntry) => {
+  testMcpServer: (name: string, entry: import('@runwork/shared').McpServerEntry) => {
     return ipcRenderer.invoke(AGENT_IPC_CHANNELS.TEST_MCP_SERVER, name, entry) as Promise<{ success: boolean; message: string }>
   },
 
@@ -1822,7 +1822,7 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke(AGENT_IPC_CHANNELS.GET_WORKTREE_REPOS, workspaceSlug)
   },
 
-  addWorktreeRepo: (workspaceSlug: string, repo: import('@legis/shared').WorkspaceWorktreeRepo) => {
+  addWorktreeRepo: (workspaceSlug: string, repo: import('@runwork/shared').WorkspaceWorktreeRepo) => {
     return ipcRenderer.invoke(AGENT_IPC_CHANNELS.ADD_WORKTREE_REPO, workspaceSlug, repo)
   },
 
@@ -1851,7 +1851,7 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke(AGENT_IPC_CHANNELS.WRITE_CLIPBOARD_PREVIEW, filename, content)
   },
 
-  systemOpenFile: (filePath: string, appName?: string, access?: import('@legis/shared').FileAccessOptions) => {
+  systemOpenFile: (filePath: string, appName?: string, access?: import('@runwork/shared').FileAccessOptions) => {
     return ipcRenderer.invoke(IPC_CHANNELS.SYSTEM_OPEN_FILE, filePath, appName, access)
   },
 
@@ -1859,8 +1859,8 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke(IPC_CHANNELS.SCAN_EDITORS)
   },
 
-  getDefaultAppForFile: (filePath: string, access?: import('@legis/shared').FileAccessOptions) => {
-    return ipcRenderer.invoke(IPC_CHANNELS.GET_DEFAULT_APP_FOR_FILE, filePath, access) as Promise<import('@legis/shared').DefaultAppInfo | null>
+  getDefaultAppForFile: (filePath: string, access?: import('@runwork/shared').FileAccessOptions) => {
+    return ipcRenderer.invoke(IPC_CHANNELS.GET_DEFAULT_APP_FOR_FILE, filePath, access) as Promise<import('@runwork/shared').DefaultAppInfo | null>
   },
 
   showInFolder: (filePath: string) => {
@@ -1872,32 +1872,32 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke(IPC_CHANNELS.SHOW_ITEM_IN_FOLDER, filePath, candidateBasePaths)
   },
 
-  resolveAndReadFile: (filePath: string, access?: import('@legis/shared').FileAccessOptions) => {
+  resolveAndReadFile: (filePath: string, access?: import('@runwork/shared').FileAccessOptions) => {
     return ipcRenderer.invoke('file:resolve-and-read', filePath, access) as Promise<{ resolvedPath: string; content: string } | null>
   },
 
-  writeTextFile: (filePath: string, content: string, access?: import('@legis/shared').FileAccessOptions) => {
+  writeTextFile: (filePath: string, content: string, access?: import('@runwork/shared').FileAccessOptions) => {
     return ipcRenderer.invoke('file:write-text', filePath, content, access) as Promise<boolean>
   },
 
-  resolveFilePath: (filePath: string, access?: import('@legis/shared').FileAccessOptions) => {
-    return ipcRenderer.invoke('file:resolve-path', filePath, access) as Promise<import('@legis/shared').ResolvedFileUrl | null>
+  resolveFilePath: (filePath: string, access?: import('@runwork/shared').FileAccessOptions) => {
+    return ipcRenderer.invoke('file:resolve-path', filePath, access) as Promise<import('@runwork/shared').ResolvedFileUrl | null>
   },
 
-  preparePdfPreview: (filePath: string, access?: import('@legis/shared').FileAccessOptions) => {
+  preparePdfPreview: (filePath: string, access?: import('@runwork/shared').FileAccessOptions) => {
     return ipcRenderer.invoke('file:prepare-pdf-preview', filePath, access) as Promise<{ tmpHtmlUrl: string } | null>
   },
 
-  readBinaryBase64: (filePath: string, access?: import('@legis/shared').FileAccessOptions, maxSize?: number) => {
+  readBinaryBase64: (filePath: string, access?: import('@runwork/shared').FileAccessOptions, maxSize?: number) => {
     return ipcRenderer.invoke('file:read-binary-base64', filePath, access, maxSize) as Promise<string | null>
   },
 
-  docxToHtml: (filePath: string, access?: import('@legis/shared').FileAccessOptions) => {
+  docxToHtml: (filePath: string, access?: import('@runwork/shared').FileAccessOptions) => {
     return ipcRenderer.invoke('file:docx-to-html', filePath, access) as Promise<{ resolvedPath: string; html: string } | null>
   },
 
-  officeToHtml: (filePath: string, access?: import('@legis/shared').FileAccessOptions) => {
-    return ipcRenderer.invoke('file:office-to-html', filePath, access) as Promise<import('@legis/shared').OfficePreviewResult | null>
+  officeToHtml: (filePath: string, access?: import('@runwork/shared').FileAccessOptions) => {
+    return ipcRenderer.invoke('file:office-to-html', filePath, access) as Promise<import('@runwork/shared').OfficePreviewResult | null>
   },
 
   screenshotCapture: (input: { html: string; isDark: boolean; width?: number; mode: 'clipboard' | 'file'; css?: string; themeClass?: string }) => {
@@ -1912,7 +1912,7 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke(AGENT_IPC_CHANNELS.MOVE_FILE, filePath, targetDir)
   },
 
-  listAttachedDirectory: (dirPath: string, access?: import('@legis/shared').FileAccessOptions) => {
+  listAttachedDirectory: (dirPath: string, access?: import('@runwork/shared').FileAccessOptions) => {
     return ipcRenderer.invoke(AGENT_IPC_CHANNELS.LIST_ATTACHED_DIRECTORY, dirPath, access)
   },
 
@@ -1920,15 +1920,15 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke(AGENT_IPC_CHANNELS.READ_ATTACHED_FILE, filePath, sessionId, workspaceSlug)
   },
 
-  showAttachedInFolder: (filePath: string, access?: import('@legis/shared').FileAccessOptions) => {
+  showAttachedInFolder: (filePath: string, access?: import('@runwork/shared').FileAccessOptions) => {
     return ipcRenderer.invoke(AGENT_IPC_CHANNELS.SHOW_ATTACHED_IN_FOLDER, filePath, access)
   },
 
-  renameAttachedFile: (filePath: string, newName: string, access?: import('@legis/shared').FileAccessOptions) => {
+  renameAttachedFile: (filePath: string, newName: string, access?: import('@runwork/shared').FileAccessOptions) => {
     return ipcRenderer.invoke(AGENT_IPC_CHANNELS.RENAME_ATTACHED_FILE, filePath, newName, access)
   },
 
-  moveAttachedFile: (filePath: string, targetDir: string, access?: import('@legis/shared').FileAccessOptions) => {
+  moveAttachedFile: (filePath: string, targetDir: string, access?: import('@runwork/shared').FileAccessOptions) => {
     return ipcRenderer.invoke(AGENT_IPC_CHANNELS.MOVE_ATTACHED_FILE, filePath, targetDir, access)
   },
 
@@ -2052,7 +2052,7 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke(FEISHU_IPC_CHANNELS.GET_MULTI_CONFIG)
   },
 
-  saveFeishuBotConfig: (input: import('@legis/shared').FeishuBotConfigInput) => {
+  saveFeishuBotConfig: (input: import('@runwork/shared').FeishuBotConfigInput) => {
     return ipcRenderer.invoke(FEISHU_IPC_CHANNELS.SAVE_BOT_CONFIG, input)
   },
 
@@ -2086,14 +2086,14 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke(FEISHU_IPC_CHANNELS.REGISTER_APP_CANCEL)
   },
 
-  onFeishuRegisterQrcode: (callback: (payload: import('@legis/shared').FeishuRegisterAppQRCode) => void) => {
-    const listener = (_: unknown, payload: import('@legis/shared').FeishuRegisterAppQRCode) => callback(payload)
+  onFeishuRegisterQrcode: (callback: (payload: import('@runwork/shared').FeishuRegisterAppQRCode) => void) => {
+    const listener = (_: unknown, payload: import('@runwork/shared').FeishuRegisterAppQRCode) => callback(payload)
     ipcRenderer.on(FEISHU_IPC_CHANNELS.REGISTER_APP_QRCODE, listener)
     return () => { ipcRenderer.removeListener(FEISHU_IPC_CHANNELS.REGISTER_APP_QRCODE, listener) }
   },
 
-  onFeishuRegisterStatus: (callback: (payload: import('@legis/shared').FeishuRegisterAppStatus) => void) => {
-    const listener = (_: unknown, payload: import('@legis/shared').FeishuRegisterAppStatus) => callback(payload)
+  onFeishuRegisterStatus: (callback: (payload: import('@runwork/shared').FeishuRegisterAppStatus) => void) => {
+    const listener = (_: unknown, payload: import('@runwork/shared').FeishuRegisterAppStatus) => callback(payload)
     ipcRenderer.on(FEISHU_IPC_CHANNELS.REGISTER_APP_STATUS, listener)
     return () => { ipcRenderer.removeListener(FEISHU_IPC_CHANNELS.REGISTER_APP_STATUS, listener) }
   },
@@ -2172,7 +2172,7 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke(DINGTALK_IPC_CHANNELS.GET_MULTI_CONFIG)
   },
 
-  saveDingTalkBotConfig: (input: import('@legis/shared').DingTalkBotConfigInput) => {
+  saveDingTalkBotConfig: (input: import('@runwork/shared').DingTalkBotConfigInput) => {
     return ipcRenderer.invoke(DINGTALK_IPC_CHANNELS.SAVE_BOT_CONFIG, input)
   },
 
@@ -2398,24 +2398,24 @@ const electronAPI: ElectronAPI = {
     return () => { ipcRenderer.removeListener(AUTOMATION_IPC_CHANNELS.CHANGED, listener) }
   },
 
-  // ===== Legis 认证安全存储（Keychain 加密） =====
+  // ===== RunWork 认证安全存储（Keychain 加密） =====
   authSecure: {
     getToken: () => ipcRenderer.invoke('auth-secure:get-token'),
     setToken: (token: string) => ipcRenderer.invoke('auth-secure:set-token', token),
     clearToken: () => ipcRenderer.invoke('auth-secure:clear-token'),
   },
 
-  // ===== Legis SK 内存存储（仅内存，不写磁盘） =====
-  legisSK: {
-    setSK: (sk: string) => ipcRenderer.invoke('legis:set-sk', sk),
-    clearSK: () => ipcRenderer.invoke('legis:clear-sk'),
+  // ===== RunWork SK 内存存储（仅内存，不写磁盘） =====
+  runworkSK: {
+    setSK: (sk: string) => ipcRenderer.invoke('runwork:set-sk', sk),
+    clearSK: () => ipcRenderer.invoke('runwork:clear-sk'),
   },
 
-  // ===== Legis 官方渠道同步 =====
-  legisChannel: {
-    upsertOfficial: (input) => ipcRenderer.invoke('legis:upsert-official-channel', input),
+  // ===== RunWork 官方渠道同步 =====
+  runworkChannel: {
+    upsertOfficial: (input) => ipcRenderer.invoke('runwork:upsert-official-channel', input),
     updateModelSelection: (selectedModelIds: string[]) =>
-      ipcRenderer.invoke('legis:update-model-selection', selectedModelIds),
+      ipcRenderer.invoke('runwork:update-model-selection', selectedModelIds),
   },
 }
 

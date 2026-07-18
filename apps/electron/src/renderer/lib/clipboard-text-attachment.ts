@@ -1,4 +1,4 @@
-import type { AgentPendingFile } from '@legis/shared'
+import type { AgentPendingFile } from '@runwork/shared'
 
 export interface ClipboardTextDraft {
   filename: string

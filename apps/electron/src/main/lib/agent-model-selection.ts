@@ -1,5 +1,5 @@
 import { getChannelById } from './channel-manager'
-import type { ProviderType } from '@legis/shared'
+import type { ProviderType } from '@runwork/shared'
 
 export interface AvailableAgentModel {
   id: string

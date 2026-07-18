@@ -25,8 +25,8 @@ import type {
   SDKSystemMessage,
   SDKUserContentBlock,
   SDKUserMessage,
-} from '@legis/shared'
-import { getSDKCompactStatus } from '@legis/shared'
+} from '@runwork/shared'
+import { getSDKCompactStatus } from '@runwork/shared'
 
 export type SessionMiniMapType = 'chat' | 'agent'
 

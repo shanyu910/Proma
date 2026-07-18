@@ -16,7 +16,7 @@ import {
 } from './primitives'
 import { proxyConfigAtom, loadProxyConfigAtom, updateProxyConfigAtom } from '@/atoms/proxy-atoms'
 import { cn } from '@/lib/utils'
-import type { ProxyMode } from '@legis/shared'
+import type { ProxyMode } from '@runwork/shared'
 
 export function ProxySettings(): React.ReactElement {
   const [config, setConfig] = useAtom(proxyConfigAtom)

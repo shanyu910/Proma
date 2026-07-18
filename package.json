@@ -1,5 +1,5 @@
 {
-  "name": "legis",
+  "name": "runwork",
   "version": "0.1.0",
   "description": "The next gen ai software with general agents",
   "type": "module",
@@ -9,10 +9,10 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "bun run --filter='@legis/electron' dev",
-    "electron:dev": "bun run --filter='@legis/electron' dev",
-    "electron:build": "bun run --filter='@legis/electron' build",
-    "electron:start": "bun run --filter='@legis/electron' start",
+    "dev": "bun run --filter='@runwork/electron' dev",
+    "electron:dev": "bun run --filter='@runwork/electron' dev",
+    "electron:build": "bun run --filter='@runwork/electron' build",
+    "electron:start": "bun run --filter='@runwork/electron' start",
     "build": "bun run --filter='*' build",
     "typecheck": "bun run --filter='*' typecheck",
     "test": "bun test"

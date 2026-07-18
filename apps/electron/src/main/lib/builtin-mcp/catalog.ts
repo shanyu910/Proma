@@ -7,7 +7,7 @@
  * 内置 MCP 列表，而不会引入 Agent 编排层循环依赖。
  */
 
-import type { BuiltinMcpServerSummary } from '@legis/shared'
+import type { BuiltinMcpServerSummary } from '@runwork/shared'
 import { getToolCredentials, getToolState } from '../chat-tool-config'
 import { getBuiltinMcpDefinitions, type BuiltinMcpDefinition } from './baseline'
 import { isBuiltinMcpDefaultDisabled, isBuiltinMcpUserEnabled } from './settings'

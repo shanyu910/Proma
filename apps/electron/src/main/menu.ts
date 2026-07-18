@@ -16,17 +16,17 @@ export function createApplicationMenu(): Menu {
     ...(isMac
       ? [
           {
-            label: 'Legis',
+            label: 'RunWork',
             submenu: [
-              { role: 'about' as const, label: '关于 Legis' },
+              { role: 'about' as const, label: '关于 RunWork' },
               { type: 'separator' as const },
               { role: 'services' as const, label: '服务' },
               { type: 'separator' as const },
-              { role: 'hide' as const, label: '隐藏 Legis' },
+              { role: 'hide' as const, label: '隐藏 RunWork' },
               { role: 'hideOthers' as const, label: '隐藏其他' },
               { role: 'unhide' as const, label: '显示全部' },
               { type: 'separator' as const },
-              { role: 'quit' as const, label: '退出 Legis' },
+              { role: 'quit' as const, label: '退出 RunWork' },
             ],
           },
         ]

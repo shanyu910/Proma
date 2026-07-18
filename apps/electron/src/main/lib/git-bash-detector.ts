@@ -15,7 +15,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import type { GitBashStatus } from '@legis/shared'
+import type { GitBashStatus } from '@runwork/shared'
 import { getGitForWindowsInstallPath } from './windows-env'
 
 /**

@@ -1,9 +1,9 @@
 # electron-builder 配置
 # 文档: https://www.electron.build/configuration/configuration
 
-appId: com.legis.app
-productName: Legis
-copyright: Copyright © 2026 Legis
+appId: com.runwork.app
+productName: RunWork
+copyright: Copyright © 2026 RunWork
 
 # Electron 版本（CI 环境 bun workspace 下无法自动检测，需显式指定）
 electronVersion: 39.5.1
@@ -45,17 +45,17 @@ files:
   # PDF 内联预览使用本地 PDF.js 资源，避免运行时依赖 CDN。
   - node_modules/pdfjs-dist/**/*
   # 排除 workspace 包的 symlink（代码已被 esbuild/Vite 打包到 dist/ 中）
-  - "!node_modules/@legis/**"
+  - "!node_modules/@runwork/**"
 
 # 通用额外资源
 extraResources:
-  # legis CLI 自包含二进制（build:cli 用 bun build --compile 产出到 resources/bin/）。
-  # 运行时由主进程注入 LEGIS_CLI 环境变量，暴露给 skill / Agent 调用。
+  # runwork CLI 自包含二进制（build:cli 用 bun build --compile 产出到 resources/bin/）。
+  # 运行时由主进程注入 RUNWORK_CLI 环境变量，暴露给 skill / Agent 调用。
   - from: resources/bin
     to: bin
     filter:
       - "**/*"
-  # 默认 Skills 模板（首次启动时同步到 ~/.legis/default-skills/）
+  # 默认 Skills 模板（首次启动时同步到 ~/.runwork/default-skills/）
   - from: default-skills
     to: default-skills
     filter:
@@ -63,9 +63,9 @@ extraResources:
   # 教程文件（教程查看器 + 欢迎对话使用）
   - from: ../../tutorial/tutorial-v2.md
     to: tutorial.md
-  # Legis 品牌 Logo 素材（品牌素材下载功能使用）
-  - from: resources/legis-logos
-    to: legis-logos
+  # RunWork 品牌 Logo 素材（品牌素材下载功能使用）
+  - from: resources/runwork-logos
+    to: runwork-logos
     filter:
       - "**/*"
   # 默认 Dock 图标（macOS app.dock.setIcon 使用）
@@ -83,13 +83,13 @@ mac:
   entitlements: resources/entitlements.mac.plist
   entitlementsInherit: resources/entitlements.mac.plist
   extendInfo:
-    NSMicrophoneUsageDescription: "Legis 需要访问麦克风，用于将你的语音实时转写为文本。"
+    NSMicrophoneUsageDescription: "RunWork 需要访问麦克风，用于将你的语音实时转写为文本。"
   fileAssociations:
-    - ext: legis-backup
-      name: Legis Personal Backup
+    - ext: runwork-backup
+      name: RunWork Personal Backup
       role: Editor
-    - ext: legis-share
-      name: Legis Share Package
+    - ext: runwork-share
+      name: RunWork Share Package
       role: Editor
   # 架构由 CLI 参数控制（CI 矩阵分别传 --arm64 / --x64），
   # 每个 runner 只构建其宿主架构对应的产物，与 bun 按 os/cpu 装好的
@@ -117,11 +117,11 @@ dmg:
 win:
   icon: resources/icon.ico
   fileAssociations:
-    - ext: legis-backup
-      name: Legis Personal Backup
+    - ext: runwork-backup
+      name: RunWork Personal Backup
       icon: resources/icon.ico
-    - ext: legis-share
-      name: Legis Share Package
+    - ext: runwork-share
+      name: RunWork Share Package
       icon: resources/icon.ico
   target:
     - target: nsis

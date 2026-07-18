@@ -1,7 +1,7 @@
 /**
- * PromaLogoSettings - Legis 品牌 Logo 下载
+ * PromaLogoSettings - RunWork 品牌 Logo 下载
  *
- * 展示多个 Legis Logo 颜色变体网格，用户可下载用作机器人头像。
+ * 展示多个 RunWork Logo 颜色变体网格，用户可下载用作机器人头像。
  */
 
 import * as React from 'react'
@@ -15,24 +15,24 @@ import { Button } from '@/components/ui/button'
 // ===== Logo 资源导入 =====
 
 // 基础色系
-import promaBlackLogo from '@/assets/bots/legis-logos/proma-black.png'
-import promaWhiteLogo from '@/assets/bots/legis-logos/proma-white.png'
-import promaBlueLogo from '@/assets/bots/legis-logos/proma-blue.png'
-import promaPurpleLogo from '@/assets/bots/legis-logos/proma-purple.png'
-import promaGradientLogo from '@/assets/bots/legis-logos/proma-gradient.png'
-import promaTransparentLogo from '@/assets/bots/legis-logos/proma-transparent.png'
+import promaBlackLogo from '@/assets/bots/runwork-logos/proma-black.png'
+import promaWhiteLogo from '@/assets/bots/runwork-logos/proma-white.png'
+import promaBlueLogo from '@/assets/bots/runwork-logos/proma-blue.png'
+import promaPurpleLogo from '@/assets/bots/runwork-logos/proma-purple.png'
+import promaGradientLogo from '@/assets/bots/runwork-logos/proma-gradient.png'
+import promaTransparentLogo from '@/assets/bots/runwork-logos/proma-transparent.png'
 
 // 潘通年度色
-import promaCoralLogo from '@/assets/bots/legis-logos/proma-coral.png'
-import promaVeriPeriLogo from '@/assets/bots/legis-logos/proma-veri-peri.png'
-import promaVivaMagentaLogo from '@/assets/bots/legis-logos/proma-viva-magenta.png'
-import promaMochaMousseLogo from '@/assets/bots/legis-logos/proma-mocha-mousse.png'
-import promaEmeraldLogo from '@/assets/bots/legis-logos/proma-emerald.png'
+import promaCoralLogo from '@/assets/bots/runwork-logos/proma-coral.png'
+import promaVeriPeriLogo from '@/assets/bots/runwork-logos/proma-veri-peri.png'
+import promaVivaMagentaLogo from '@/assets/bots/runwork-logos/proma-viva-magenta.png'
+import promaMochaMousseLogo from '@/assets/bots/runwork-logos/proma-mocha-mousse.png'
+import promaEmeraldLogo from '@/assets/bots/runwork-logos/proma-emerald.png'
 
 // 科技风格
-import proma8bitLogo from '@/assets/bots/legis-logos/proma-8bit.png'
-import promaCyberpunkLogo from '@/assets/bots/legis-logos/proma-cyberpunk.png'
-import promaFuturisticLogo from '@/assets/bots/legis-logos/proma-futuristic.png'
+import proma8bitLogo from '@/assets/bots/runwork-logos/proma-8bit.png'
+import promaCyberpunkLogo from '@/assets/bots/runwork-logos/proma-cyberpunk.png'
+import promaFuturisticLogo from '@/assets/bots/runwork-logos/proma-futuristic.png'
 
 // ===== 类型 =====
 
@@ -54,7 +54,7 @@ const LOGO_VARIANTS: readonly LogoVariant[] = [
     name: '经典黑',
     description: '黑色背景，适合浅色界面',
     src: promaBlackLogo,
-    resourcePath: 'legis-logos/proma-black.png',
+    resourcePath: 'runwork-logos/proma-black.png',
     previewBg: 'bg-neutral-900',
   },
   {
@@ -62,7 +62,7 @@ const LOGO_VARIANTS: readonly LogoVariant[] = [
     name: '纯白版',
     description: '白色背景，适合深色界面',
     src: promaWhiteLogo,
-    resourcePath: 'legis-logos/proma-white.png',
+    resourcePath: 'runwork-logos/proma-white.png',
     previewBg: 'bg-white',
   },
   {
@@ -70,7 +70,7 @@ const LOGO_VARIANTS: readonly LogoVariant[] = [
     name: '品牌蓝',
     description: '深蓝背景，适合正式场合',
     src: promaBlueLogo,
-    resourcePath: 'legis-logos/proma-blue.png',
+    resourcePath: 'runwork-logos/proma-blue.png',
     previewBg: 'bg-blue-900',
   },
   {
@@ -78,7 +78,7 @@ const LOGO_VARIANTS: readonly LogoVariant[] = [
     name: '紫色版',
     description: '紫色调，个性风格',
     src: promaPurpleLogo,
-    resourcePath: 'legis-logos/proma-purple.png',
+    resourcePath: 'runwork-logos/proma-purple.png',
     previewBg: 'bg-purple-900',
   },
   {
@@ -86,7 +86,7 @@ const LOGO_VARIANTS: readonly LogoVariant[] = [
     name: '渐变版',
     description: '蓝紫渐变背景',
     src: promaGradientLogo,
-    resourcePath: 'legis-logos/proma-gradient.png',
+    resourcePath: 'runwork-logos/proma-gradient.png',
     previewBg: 'bg-gradient-to-br from-blue-600 to-purple-600',
   },
   {
@@ -94,7 +94,7 @@ const LOGO_VARIANTS: readonly LogoVariant[] = [
     name: '透明底',
     description: '无背景，可叠加任意颜色',
     src: promaTransparentLogo,
-    resourcePath: 'legis-logos/proma-transparent.png',
+    resourcePath: 'runwork-logos/proma-transparent.png',
     previewBg: 'bg-[repeating-conic-gradient(#e5e7eb_0%_25%,#fff_0%_50%)] bg-[length:16px_16px]',
   },
   // 潘通年度色
@@ -103,7 +103,7 @@ const LOGO_VARIANTS: readonly LogoVariant[] = [
     name: '珊瑚橘',
     description: 'Pantone 2019 Living Coral',
     src: promaCoralLogo,
-    resourcePath: 'legis-logos/proma-coral.png',
+    resourcePath: 'runwork-logos/proma-coral.png',
     previewBg: 'bg-[#FF6F61]',
   },
   {
@@ -111,7 +111,7 @@ const LOGO_VARIANTS: readonly LogoVariant[] = [
     name: '长春花蓝',
     description: 'Pantone 2022 Very Peri',
     src: promaVeriPeriLogo,
-    resourcePath: 'legis-logos/proma-veri-peri.png',
+    resourcePath: 'runwork-logos/proma-veri-peri.png',
     previewBg: 'bg-[#6667AB]',
   },
   {
@@ -119,7 +119,7 @@ const LOGO_VARIANTS: readonly LogoVariant[] = [
     name: '非凡洋红',
     description: 'Pantone 2023 Viva Magenta',
     src: promaVivaMagentaLogo,
-    resourcePath: 'legis-logos/proma-viva-magenta.png',
+    resourcePath: 'runwork-logos/proma-viva-magenta.png',
     previewBg: 'bg-[#BB2649]',
   },
   {
@@ -127,7 +127,7 @@ const LOGO_VARIANTS: readonly LogoVariant[] = [
     name: '摩卡慕斯',
     description: 'Pantone 2025 Mocha Mousse',
     src: promaMochaMousseLogo,
-    resourcePath: 'legis-logos/proma-mocha-mousse.png',
+    resourcePath: 'runwork-logos/proma-mocha-mousse.png',
     previewBg: 'bg-[#A47764]',
   },
   {
@@ -135,7 +135,7 @@ const LOGO_VARIANTS: readonly LogoVariant[] = [
     name: '翡翠绿',
     description: 'Pantone 2013 Emerald',
     src: promaEmeraldLogo,
-    resourcePath: 'legis-logos/proma-emerald.png',
+    resourcePath: 'runwork-logos/proma-emerald.png',
     previewBg: 'bg-[#009473]',
   },
   // 科技风格
@@ -144,7 +144,7 @@ const LOGO_VARIANTS: readonly LogoVariant[] = [
     name: '8bit 像素风',
     description: '复古像素游戏风格',
     src: proma8bitLogo,
-    resourcePath: 'legis-logos/proma-8bit.png',
+    resourcePath: 'runwork-logos/proma-8bit.png',
     previewBg: 'bg-[#1a1a2e]',
   },
   {
@@ -152,7 +152,7 @@ const LOGO_VARIANTS: readonly LogoVariant[] = [
     name: '赛博朋克',
     description: '霓虹赛博风格',
     src: promaCyberpunkLogo,
-    resourcePath: 'legis-logos/proma-cyberpunk.png',
+    resourcePath: 'runwork-logos/proma-cyberpunk.png',
     previewBg: 'bg-[#0d0221]',
   },
   {
@@ -160,7 +160,7 @@ const LOGO_VARIANTS: readonly LogoVariant[] = [
     name: '未来质感',
     description: '金属全息科技风',
     src: promaFuturisticLogo,
-    resourcePath: 'legis-logos/proma-futuristic.png',
+    resourcePath: 'runwork-logos/proma-futuristic.png',
     previewBg: 'bg-[#4a4a4a]',
   },
 ] as const
@@ -219,7 +219,7 @@ export function PromaLogoSettings(): React.ReactElement {
     <>
       <SettingsSection
         title="品牌 Logo"
-        description="下载 Legis Logo 用作机器人头像，让用户一眼认出你的 AI 助手"
+        description="下载 RunWork Logo 用作机器人头像，让用户一眼认出你的 AI 助手"
       >
         <div className="grid grid-cols-3 gap-4">
           {LOGO_VARIANTS.map((logo) => (

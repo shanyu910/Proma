@@ -1,10 +1,10 @@
 {
-  "name": "@legis/electron",
+  "name": "@runwork/electron",
   "version": "0.0.5",
-  "description": "Legis next gen ai software with general agents - Electron App",
+  "description": "RunWork next gen ai software with general agents - Electron App",
   "main": "dist/main.cjs",
   "author": {
-    "name": "Legis"
+    "name": "RunWork"
   },
   "private": true,
   "type": "module",
@@ -57,10 +57,10 @@
     "@emoji-mart/data": "^1.2.1",
     "@emoji-mart/react": "^1.1.1",
     "@larksuiteoapi/node-sdk": "^1.65.0",
-    "@legis/core": "workspace:*",
-    "@legis/session-core": "workspace:*",
-    "@legis/shared": "workspace:*",
-    "@legis/ui": "workspace:*",
+    "@runwork/core": "workspace:*",
+    "@runwork/session-core": "workspace:*",
+    "@runwork/shared": "workspace:*",
+    "@runwork/ui": "workspace:*",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-context-menu": "^2.2.16",
@@ -158,5 +158,5 @@
   "build": {
     "extends": "electron-builder.yml"
   },
-  "legis": {}
+  "runwork": {}
 }

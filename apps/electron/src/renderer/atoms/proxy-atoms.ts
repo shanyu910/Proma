@@ -5,7 +5,7 @@
  */
 
 import { atom } from 'jotai'
-import type { ProxyConfig } from '@legis/shared'
+import type { ProxyConfig } from '@runwork/shared'
 
 /**
  * 代理配置 Atom

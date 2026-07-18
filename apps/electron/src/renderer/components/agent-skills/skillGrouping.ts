@@ -1,4 +1,4 @@
-import type { SkillMeta } from '@legis/shared'
+import type { SkillMeta } from '@runwork/shared'
 
 export interface SkillGroup {
   id: string

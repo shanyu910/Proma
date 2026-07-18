@@ -1,4 +1,4 @@
-import type { FileAccessOptions } from '@legis/shared'
+import type { FileAccessOptions } from '@runwork/shared'
 import type { PreviewFile } from '@/atoms/preview-atoms'
 
 function isAbsoluteFilePath(filePath: string): boolean {

@@ -291,7 +291,7 @@ export function GlobalShortcuts(): null {
           store.set(currentConversationIdAtom, meta.id)
 
           // 处理附件：保存到磁盘，收集 FileAttachment[]
-          const savedAttachments: import('@legis/shared').FileAttachment[] = []
+          const savedAttachments: import('@runwork/shared').FileAttachment[] = []
           if (data.files && data.files.length > 0) {
             for (const file of data.files) {
               if (!file.base64) {
@@ -336,7 +336,7 @@ export function GlobalShortcuts(): null {
     return cleanup
   }, [store])
 
-  // ===== 语音输入 → 写入当前 Legis 输入框 =====
+  // ===== 语音输入 → 写入当前 RunWork 输入框 =====
 
   useEffect(() => {
     const cleanup = window.electronAPI.onVoiceDictationInsertText(({ text }) => {

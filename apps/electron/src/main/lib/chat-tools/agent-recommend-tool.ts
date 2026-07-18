@@ -6,8 +6,8 @@
  * 由渲染进程的 AgentRecommendBanner 负责展示和执行迁移。
  */
 
-import type { ToolCall, ToolResult, ToolDefinition } from '@legis/core'
-import type { ChatToolMeta } from '@legis/shared'
+import type { ToolCall, ToolResult, ToolDefinition } from '@runwork/core'
+import type { ChatToolMeta } from '@runwork/shared'
 
 // ===== 工具元数据 =====
 

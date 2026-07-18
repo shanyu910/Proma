@@ -124,9 +124,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
-import type { ConversationMeta, AgentSessionMeta, AgentWorkspace, WorkspaceCapabilities } from '@legis/shared'
-import { useAuthGate, authStatusAtom, authUserAtom, AccountMenu } from '../../../legis'
-import { loginModalAtom } from '../../../legis/auth/auth-state'
+import type { ConversationMeta, AgentSessionMeta, AgentWorkspace, WorkspaceCapabilities } from '@runwork/shared'
+import { useAuthGate, authStatusAtom, authUserAtom, AccountMenu } from '../../../runwork'
+import { loginModalAtom } from '../../../runwork/auth/auth-state'
 
 function formatAutomationCount(count: number): string {
   return count > 99 ? '99+' : String(count)

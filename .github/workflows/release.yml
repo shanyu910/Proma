@@ -4,7 +4,7 @@
 # 构建 macOS (arm64 + x64) 和 Windows (x64) 产物并发布到 GitHub Releases
 #
 # 签名状态：
-# - macOS：用自签名证书 LegisSelfSign 签名（启用 electron-updater 自动更新）
+# - macOS：用自签名证书 RunWorkSelfSign 签名（启用 electron-updater 自动更新）
 #          未公证，用户首次打开需右键 → 打开
 # - Windows：未签名，SmartScreen 会警告，用户点"仍要运行"
 #
@@ -48,7 +48,7 @@ jobs:
       # 注入生产环境配置（.env 被 gitignore，CI 显式创建）
       - name: 写入生产环境 .env
         run: |
-          echo "VITE_LEGIS_SERVER_URL=http://14.103.216.135:31006" > apps/electron/.env
+          echo "VITE_RUNWORK_SERVER_URL=http://14.103.216.135:31006" > apps/electron/.env
 
       # macOS 代码签名准备（导入自签名证书 + 私钥到临时钥匙串）
       - name: 导入 macOS 签名证书
@@ -89,11 +89,11 @@ jobs:
         run: bun run electron:build
 
       # 打包并发布到 GitHub Releases
-      # 用自签名证书 LegisSelfSign 签名（启用 macOS 自动更新的必要条件）
+      # 用自签名证书 RunWorkSelfSign 签名（启用 macOS 自动更新的必要条件）
       - name: 打包并发布 (macOS arm64)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_NAME: LegisSelfSign
+          CSC_NAME: RunWorkSelfSign
           # 禁用公证（自签名证书无法公证，用户首次打开需右键→打开）
           CSC_IDENTITY_AUTO_DISCOVERY: 'true'
           # 不传 APPLE_*，跳过 Apple 公证
@@ -128,7 +128,7 @@ jobs:
 
       - name: 写入生产环境 .env
         run: |
-          echo "VITE_LEGIS_SERVER_URL=http://14.103.216.135:31006" > apps/electron/.env
+          echo "VITE_RUNWORK_SERVER_URL=http://14.103.216.135:31006" > apps/electron/.env
 
       - name: 导入 macOS 签名证书
         env:
@@ -168,7 +168,7 @@ jobs:
       - name: 打包并发布 (macOS x64)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_NAME: LegisSelfSign
+          CSC_NAME: RunWorkSelfSign
           CSC_IDENTITY_AUTO_DISCOVERY: 'true'
         run: |
           for i in 1 2 3; do
@@ -337,7 +337,7 @@ jobs:
 
       - name: 写入生产环境 .env
         run: |
-          echo "VITE_LEGIS_SERVER_URL=http://14.103.216.135:31006" > apps/electron/.env
+          echo "VITE_RUNWORK_SERVER_URL=http://14.103.216.135:31006" > apps/electron/.env
         shell: bash
 
       - name: 构建应用

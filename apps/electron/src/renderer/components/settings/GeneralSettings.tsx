@@ -8,7 +8,7 @@
 import * as React from 'react'
 import { useAtom, useSetAtom } from 'jotai'
 import { Camera, ImagePlus, Volume2 } from 'lucide-react'
-import { authUserAtom, getStoredToken, updateProfile } from '../../../legis'
+import { authUserAtom, getStoredToken, updateProfile } from '../../../runwork'
 import Picker from '@emoji-mart/react'
 import data from '@emoji-mart/data'
 import {

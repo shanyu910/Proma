@@ -1,4 +1,4 @@
-import type { ProviderType } from '@legis/shared'
+import type { ProviderType } from '@runwork/shared'
 
 export const DEEPSEEK_SUBAGENT_MODEL_ID = 'deepseek-v4-flash'
 export interface AgentModelRoutingInput {

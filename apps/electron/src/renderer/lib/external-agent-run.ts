@@ -1,4 +1,4 @@
-import type { AgentSessionMeta } from '@legis/shared'
+import type { AgentSessionMeta } from '@runwork/shared'
 import type { AgentStreamState } from '@/atoms/agent-atoms'
 
 export interface ExternalAgentRunTab {

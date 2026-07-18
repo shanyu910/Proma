@@ -14,7 +14,7 @@
 
 import { execSync } from 'child_process'
 import { app } from 'electron'
-import type { ShellEnvResult } from '@legis/shared'
+import type { ShellEnvResult } from '@runwork/shared'
 import { loadWindowsEnv } from './windows-env'
 
 /**

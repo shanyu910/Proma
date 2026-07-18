@@ -9,7 +9,7 @@ import type {
   AgentExternalRunSource,
   AgentMessage,
   AgentSendInput,
-} from '@legis/shared'
+} from '@runwork/shared'
 
 export interface HeadlessAgentRunCallbacks {
   onError: (error: string) => void

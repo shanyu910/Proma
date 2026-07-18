@@ -4,24 +4,24 @@
  * 负责 Electron 特定的操作：
  * - 查找渠道、解密 API Key
  * - 管理 AbortController
- * - 调用 @legis/core 的 Provider 适配器系统
+ * - 调用 @runwork/core 的 Provider 适配器系统
  * - 桥接 StreamEvent → webContents.send()
  * - 持久化消息到 JSONL + 更新索引
  * - 模块化工具的 function calling 循环（通过 ChatToolRegistry + ChatToolExecutor）
  *
- * 纯逻辑（消息转换、SSE 解析、请求构建）已抽象到 @legis/core/providers。
+ * 纯逻辑（消息转换、SSE 解析、请求构建）已抽象到 @runwork/core/providers。
  */
 
 import { randomUUID } from 'node:crypto'
 import type { WebContents } from 'electron'
-import { CHAT_IPC_CHANNELS } from '@legis/shared'
-import type { ChatSendInput, ChatMessage, GenerateTitleInput, FileAttachment, ChatToolActivity } from '@legis/shared'
+import { CHAT_IPC_CHANNELS } from '@runwork/shared'
+import type { ChatSendInput, ChatMessage, GenerateTitleInput, FileAttachment, ChatToolActivity } from '@runwork/shared'
 import {
   getAdapter,
   streamSSE,
   fetchTitle,
-} from '@legis/core'
-import type { ImageAttachmentData, ContinuationMessage } from '@legis/core'
+} from '@runwork/core'
+import type { ImageAttachmentData, ContinuationMessage } from '@runwork/core'
 import { listChannels, decryptApiKey } from './channel-manager'
 import { appendMessage, updateConversationMeta, getConversationMessages } from './conversation-manager'
 import { readAttachmentAsBase64, isImageAttachment } from './attachment-service'

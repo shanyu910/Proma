@@ -1,4 +1,4 @@
-import type { FeishuChatBinding } from '@legis/shared'
+import type { FeishuChatBinding } from '@runwork/shared'
 
 export type FeishuBindingViewMode = 'active' | 'archived'
 export type FeishuBindingTypeFilter = 'all' | 'group' | 'p2p'

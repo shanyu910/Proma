@@ -3,7 +3,7 @@
  *
  * 负责渠道的 CRUD 操作、API Key 加密/解密、连接测试。
  * 使用 Electron safeStorage 进行 API Key 加密（底层使用 OS 级加密）。
- * 数据持久化到 ~/.legis/channels.json。
+ * 数据持久化到 ~/.runwork/channels.json。
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
@@ -20,8 +20,8 @@ import type {
   FetchModelsInput,
   FetchModelsResult,
   ProviderType,
-} from '@legis/shared'
-import { PROVIDER_DEFAULT_URLS } from '@legis/shared'
+} from '@runwork/shared'
+import { PROVIDER_DEFAULT_URLS } from '@runwork/shared'
 import { getFetchFn } from './proxy-fetch'
 import { getEffectiveProxyUrl } from './proxy-settings-service'
 import {
@@ -31,7 +31,7 @@ import {
   resolveAnthropicMessagesUrl,
   resolveAnthropicModelsUrl,
   resolveOpenAIModelsUrl,
-} from '@legis/core'
+} from '@runwork/core'
 import { normalizeHttpResponse, normalizeRequestError } from './channel-test-error'
 import pkg from '../../../package.json' with { type: 'json' }
 
@@ -305,18 +305,18 @@ export function deleteChannel(id: string): void {
 }
 
 /**
- * Legis 官方渠道的 SK 占位符（真 SK 存主进程内存，见 auth-secure-storage.ts）
+ * RunWork 官方渠道的 SK 占位符（真 SK 存主进程内存，见 auth-secure-storage.ts）
  *
  * channels.json 里官方渠道的 apiKey 字段存这个占位符（加密后），
  * decryptApiKey 检测到占位符时返回主进程内存中的真实 SK。
  */
-const LEGIS_SK_PLACEHOLDER = '__LEGIS_INJECT__'
+const RUNWORK_SK_PLACEHOLDER = '__RUNWORK_INJECT__'
 
 /**
  * 解密渠道的 API Key
  *
  * 仅在用户需要查看时调用。
- * Legis 官方渠道的 apiKey 是占位符，返回主进程内存中的真实 SK。
+ * RunWork 官方渠道的 apiKey 是占位符，返回主进程内存中的真实 SK。
  */
 export function decryptApiKey(channelId: string): string {
   const config = readConfig()
@@ -326,13 +326,13 @@ export function decryptApiKey(channelId: string): string {
     throw new Error(`渠道不存在: ${channelId}`)
   }
 
-  // Legis 官方渠道：apiKey 是占位符，返回主进程内存中的真实 SK
+  // RunWork 官方渠道：apiKey 是占位符，返回主进程内存中的真实 SK
   const decrypted = decryptKey(channel.apiKey)
-  if (decrypted === LEGIS_SK_PLACEHOLDER) {
-    const { getSKInMemory } = require('../../legis/secure/auth-secure-storage')
+  if (decrypted === RUNWORK_SK_PLACEHOLDER) {
+    const { getSKInMemory } = require('../../runwork/secure/auth-secure-storage')
     const sk = getSKInMemory()
     if (!sk) {
-      throw new Error('Legis 官方渠道 SK 未加载，请重新登录')
+      throw new Error('RunWork 官方渠道 SK 未加载，请重新登录')
     }
     return sk
   }
@@ -382,7 +382,7 @@ export async function testChannel(channelId: string): Promise<ChannelTestResult>
       case 'google':
         return await testGoogle(channel.baseUrl, apiKey, proxyUrl)
       default:
-        return { success: false, message: `不支持的供应商: ${channel.provider}。你可能过去使用的是 Legis 商业版，请重新下载商业版覆盖安装，当前版本为开源版本。` }
+        return { success: false, message: `不支持的供应商: ${channel.provider}。你可能过去使用的是 RunWork 商业版，请重新下载商业版覆盖安装，当前版本为开源版本。` }
     }
   } catch (error) {
     return normalizeRequestError(error)
@@ -394,7 +394,7 @@ export async function testChannel(channelId: string): Promise<ChannelTestResult>
  *
  * DeepSeek / Kimi 等内置供应商会按协议根路径补全端点。
  * Anthropic 兼容格式使用用户填写的完整请求地址。
- * Kimi Coding Plan 必须发送 Legis User-Agent，否则返回 403。
+ * Kimi Coding Plan 必须发送 RunWork User-Agent，否则返回 403。
  */
 async function testAnthropicCompatible(
   baseUrl: string,
@@ -602,7 +602,7 @@ interface AnthropicModelItem {
  *
  * DeepSeek / Kimi 等内置供应商会按协议根路径补全模型端点。
  * Anthropic 兼容格式使用完整请求地址，不再推导模型端点。
- * Kimi Coding Plan 必须发送 Legis User-Agent。
+ * Kimi Coding Plan 必须发送 RunWork User-Agent。
  * 文档: https://docs.anthropic.com/en/api/models-list
  */
 async function fetchAnthropicCompatibleModels(
@@ -764,10 +764,10 @@ async function fetchGoogleModels(baseUrl: string, apiKey: string, proxyUrl?: str
   }
 }
 
-// ===== Legis 官方渠道专用管理 =====
+// ===== RunWork 官方渠道专用管理 =====
 
-/** Legis 官方渠道固定 ID */
-const LEGIS_OFFICIAL_CHANNEL_ID = 'legis-official'
+/** RunWork 官方渠道固定 ID */
+const RUNWORK_OFFICIAL_CHANNEL_ID = 'runwork-official'
 
 export interface UpsertOfficialChannelInput {
   baseUrl: string
@@ -776,38 +776,38 @@ export interface UpsertOfficialChannelInput {
 }
 
 /**
- * 创建或更新 Legis 官方渠道（用固定 ID，不生成 UUID）
+ * 创建或更新 RunWork 官方渠道（用固定 ID，不生成 UUID）
  *
  * 同时：
  * - 禁用所有非官方渠道
  * - 清理重复的旧官方渠道（之前用 createChannel 创建的 UUID 渠道）
  *
- * @returns 官方渠道 ID（固定 'legis-official'）
+ * @returns 官方渠道 ID（固定 'runwork-official'）
  */
 export function upsertOfficialChannel(input: UpsertOfficialChannelInput): string {
   const config = readConfig()
   const now = Date.now()
 
-  // 清理：删除所有旧的 "Legis 官方" 渠道（name 匹配但 id 不是固定 ID 的）
+  // 清理：删除所有旧的 "RunWork 官方" 渠道（name 匹配但 id 不是固定 ID 的）
   config.channels = config.channels.filter(
-    (c) => !(c.name === 'Legis 官方' && c.id !== LEGIS_OFFICIAL_CHANNEL_ID),
+    (c) => !(c.name === 'RunWork 官方' && c.id !== RUNWORK_OFFICIAL_CHANNEL_ID),
   )
 
   // 禁用所有非官方渠道
   for (const channel of config.channels) {
-    if (channel.id !== LEGIS_OFFICIAL_CHANNEL_ID) {
+    if (channel.id !== RUNWORK_OFFICIAL_CHANNEL_ID) {
       channel.enabled = false
     }
   }
 
   // 查找或创建官方渠道
-  const existing = config.channels.find((c) => c.id === LEGIS_OFFICIAL_CHANNEL_ID)
+  const existing = config.channels.find((c) => c.id === RUNWORK_OFFICIAL_CHANNEL_ID)
 
   if (existing) {
     // 更新（保留用户模型勾选偏好）
     const oldModelEnabledMap = new Map(existing.models.map((m) => [m.id, m.enabled]))
     existing.baseUrl = input.baseUrl
-    existing.apiKey = encryptApiKey(LEGIS_SK_PLACEHOLDER)
+    existing.apiKey = encryptApiKey(RUNWORK_SK_PLACEHOLDER)
     existing.models = input.models.map((m) => ({
       id: m.id,
       name: m.name,
@@ -819,11 +819,11 @@ export function upsertOfficialChannel(input: UpsertOfficialChannelInput): string
   } else {
     // 创建（用固定 ID，不走 randomUUID）
     config.channels.push({
-      id: LEGIS_OFFICIAL_CHANNEL_ID,
-      name: 'Legis 官方',
+      id: RUNWORK_OFFICIAL_CHANNEL_ID,
+      name: 'RunWork 官方',
       provider: 'anthropic',
       baseUrl: input.baseUrl,
-      apiKey: encryptApiKey(LEGIS_SK_PLACEHOLDER),
+      apiKey: encryptApiKey(RUNWORK_SK_PLACEHOLDER),
       models: input.models.map((m) => ({
         id: m.id,
         name: m.name,
@@ -837,19 +837,19 @@ export function upsertOfficialChannel(input: UpsertOfficialChannelInput): string
   }
 
   writeConfig(config)
-  console.log('[Legis] 官方渠道已同步，渠道数:', config.channels.length)
-  return LEGIS_OFFICIAL_CHANNEL_ID
+  console.log('[RunWork] 官方渠道已同步，渠道数:', config.channels.length)
+  return RUNWORK_OFFICIAL_CHANNEL_ID
 }
 
 /**
- * 获取 Legis 官方渠道固定 ID（供外部使用）
+ * 获取 RunWork 官方渠道固定 ID（供外部使用）
  */
 export function getOfficialChannelId(): string {
-  return LEGIS_OFFICIAL_CHANNEL_ID
+  return RUNWORK_OFFICIAL_CHANNEL_ID
 }
 
 /**
- * 更新 Legis 官方渠道的模型勾选状态
+ * 更新 RunWork 官方渠道的模型勾选状态
  *
  * 用户在"模型管理"页勾选/取消勾选模型时调用，
  * 同步到 channels.json 的 model.enabled 字段，
@@ -859,10 +859,10 @@ export function getOfficialChannelId(): string {
  */
 export function updateOfficialChannelModelSelection(selectedModelIds: string[]): void {
   const config = readConfig()
-  const channel = config.channels.find((c) => c.id === LEGIS_OFFICIAL_CHANNEL_ID)
+  const channel = config.channels.find((c) => c.id === RUNWORK_OFFICIAL_CHANNEL_ID)
 
   if (!channel) {
-    console.warn('[Legis] 官方渠道不存在，无法更新模型勾选')
+    console.warn('[RunWork] 官方渠道不存在，无法更新模型勾选')
     return
   }
 

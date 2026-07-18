@@ -13,7 +13,7 @@ import type {
   FeishuTestResult,
   FeishuBotConfig,
   AgentSessionMeta,
-} from '@legis/shared'
+} from '@runwork/shared'
 import { FeishuBridge } from './feishu-bridge'
 import { getFeishuMultiBotConfig, getFeishuBotById } from './feishu-config'
 import { getSettings } from './settings-service'

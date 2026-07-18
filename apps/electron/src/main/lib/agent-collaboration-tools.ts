@@ -1,7 +1,7 @@
 /**
  * Agent 内置协作会话工具
  *
- * 通过 SDK MCP Server 暴露 Legis Agent 子会话委派能力。
+ * 通过 SDK MCP Server 暴露 RunWork Agent 子会话委派能力。
  * Skill 负责判断何时协作；这里负责受控创建真实 Agent 会话、运行、等待和停止。
  */
 
@@ -16,7 +16,7 @@ import type {
   PermissionRequest,
   PromaPermissionMode,
   SDKMessage,
-} from '@legis/shared'
+} from '@runwork/shared'
 import {
   createAgentSession,
   getAgentSessionMeta,
@@ -135,7 +135,7 @@ export function registerCollaborationEventBus(eventBus: import('./agent-event-bu
           type: 'delegation_blocked' as const,
           delegationId: record.delegationId,
           blockedEvent: blocked,
-        } as import('@legis/shared').PromaEvent,
+        } as import('@runwork/shared').PromaEvent,
       })
     }
 
@@ -159,7 +159,7 @@ export function registerCollaborationEventBus(eventBus: import('./agent-event-bu
           type: 'delegation_blocked' as const,
           delegationId: record.delegationId,
           blockedEvent: blocked,
-        } as import('@legis/shared').PromaEvent,
+        } as import('@runwork/shared').PromaEvent,
       })
     }
 
@@ -791,7 +791,7 @@ export async function injectAgentCollaborationMcpServer(
       ),
       sdk.tool(
         'delegate_agent',
-        '创建一个真实可见的 Legis 协作子 Agent 会话来并行处理独立子任务。只用于长耗时、可并行、需要追踪的任务；简单搜索优先用内置 Agent/SubAgent。',
+        '创建一个真实可见的 RunWork 协作子 Agent 会话来并行处理独立子任务。只用于长耗时、可并行、需要追踪的任务；简单搜索优先用内置 Agent/SubAgent。',
         schemas.delegate,
         async (args) => {
           const parent = assertCanCreateDelegation(ctx)
@@ -807,7 +807,7 @@ export async function injectAgentCollaborationMcpServer(
       ),
       sdk.tool(
         'delegate_agents',
-        '批量创建多个真实可见的 Legis 协作子 Agent 会话。适合把同一大任务拆成多片并行处理，单个父会话运行中子会话最多 50 个。',
+        '批量创建多个真实可见的 RunWork 协作子 Agent 会话。适合把同一大任务拆成多片并行处理，单个父会话运行中子会话最多 50 个。',
         schemas.delegateBatch,
         async (args) => {
           const parent = assertCanCreateDelegation(ctx, args.items.length)
@@ -854,7 +854,7 @@ export async function injectAgentCollaborationMcpServer(
       ),
       sdk.tool(
         'wait_for_delegations',
-        '等待一个或多个 Legis 协作子会话完成，并返回结构化结果摘要。支持 all 等全部完成，或 any 等部分完成。',
+        '等待一个或多个 RunWork 协作子会话完成，并返回结构化结果摘要。支持 all 等全部完成，或 any 等部分完成。',
         schemas.wait,
         async (args) => {
           const ids = args.delegationIds?.length
@@ -893,7 +893,7 @@ export async function injectAgentCollaborationMcpServer(
       ),
       sdk.tool(
         'list_delegations',
-        '列出当前父会话创建的 Legis 协作子会话及状态。',
+        '列出当前父会话创建的 RunWork 协作子会话及状态。',
         schemas.list,
         async (args) => {
           const items = listKnownDelegations(ctx.sessionId)
@@ -910,7 +910,7 @@ export async function injectAgentCollaborationMcpServer(
       ),
       sdk.tool(
         'get_delegation_results',
-        '按委派 ID 读取一个或多个 Legis 协作子会话的结果摘要。适合先 list 后按需取结果，或父会话恢复后读取已完成子会话。',
+        '按委派 ID 读取一个或多个 RunWork 协作子会话的结果摘要。适合先 list 后按需取结果，或父会话恢复后读取已完成子会话。',
         schemas.results,
         async (args) => {
           return jsonResult({
@@ -921,7 +921,7 @@ export async function injectAgentCollaborationMcpServer(
       ),
       sdk.tool(
         'stop_delegation',
-        '停止一个正在运行的 Legis 协作子会话。',
+        '停止一个正在运行的 RunWork 协作子会话。',
         schemas.stop,
         async (args) => {
           return jsonResult(stopDelegation(ctx.sessionId, args.delegationId))
@@ -929,7 +929,7 @@ export async function injectAgentCollaborationMcpServer(
       ),
       sdk.tool(
         'stop_delegations',
-        '批量停止多个正在运行的 Legis 协作子会话。',
+        '批量停止多个正在运行的 RunWork 协作子会话。',
         schemas.stopBatch,
         async (args) => {
           return jsonResult({

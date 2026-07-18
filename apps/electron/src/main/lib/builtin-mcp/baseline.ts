@@ -9,7 +9,7 @@
  * Proma 每次发布即覆盖升级，无需运行时同步到用户目录。
  */
 
-import type { BuiltinMcpCategory, McpToolSummary } from '@legis/shared'
+import type { BuiltinMcpCategory, McpToolSummary } from '@runwork/shared'
 import manifest from './default-mcp.json' with { type: 'json' }
 
 export interface BuiltinMcpDefinition {

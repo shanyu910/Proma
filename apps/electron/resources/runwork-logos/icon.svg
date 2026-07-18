@@ -1,0 +1,16 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    RunWork 托盘图标 - 纯黑 R 剪影
+    macOS Template 图标规范:
+      - 透明背景（无 rect）
+      - 纯黑 #000 填充（系统自动适配深/浅菜单栏颜色）
+      - 粗壮笔画，22x22 缩小后仍清晰
+    设计派生: 主图标的字母 R 路径（等比缩放到 64x64 viewBox）
+  -->
+  <!-- Path 1: 左侧竖干 -->
+  <path d="M 18 14 L 21 11 L 25 11 L 25 49 L 18 49 Z" fill="#000"/>
+  <!-- Path 2: 右上半圆环（含内腔） -->
+  <path d="M 25 12 L 35 12 A 10 10 0 0 1 35 32 L 25 32 Z M 25 17 L 29 17 A 5 5 0 0 1 29 27 L 25 27 Z" fill="#000" fill-rule="evenodd"/>
+  <!-- Path 3: 右下斜腿 -->
+  <path d="M 25 30 L 31 30 L 45 46 L 42 49 L 38 49 L 25 36 Z" fill="#000"/>
+</svg>

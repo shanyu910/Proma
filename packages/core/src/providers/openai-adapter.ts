@@ -10,7 +10,7 @@
  * - 认证：Authorization: Bearer
  */
 
-import type { ProviderType } from '@legis/shared'
+import type { ProviderType } from '@runwork/shared'
 import type {
   ProviderAdapter,
   ProviderRequest,

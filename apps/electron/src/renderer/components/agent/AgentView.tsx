@@ -29,7 +29,7 @@ import { ExitPlanModeBanner } from './ExitPlanModeBanner'
 import { PlanModeDashedBorder } from './PlanModeDashedBorder'
 import { ModelSelector } from '@/components/chat/ModelSelector'
 import { AttachmentPreviewItem } from '@/components/chat/AttachmentPreviewItem'
-import { useAuthGate, authStatusAtom } from '../../../legis'
+import { useAuthGate, authStatusAtom } from '../../../runwork'
 import { QuotedSelectionChip } from '@/components/diff/QuotedSelectionChip'
 import { RichTextInput } from '@/components/ai-elements/rich-text-input'
 import { SpeechButton } from '@/components/ai-elements/speech-button'
@@ -111,8 +111,8 @@ import { AgentSessionProvider } from '@/contexts/session-context'
 import { draftSessionIdsAtom } from '@/atoms/draft-session-atoms'
 import { sendWithCmdEnterAtom } from '@/atoms/shortcut-atoms'
 import { useOpenPreview } from '@/components/diff/preview-opener'
-import type { AgentSendInput, AgentPendingFile, FileDialogLargeFile, ModelOption, SDKMessage, SDKUserMessage } from '@legis/shared'
-import { inferContextWindow, MAX_ATTACHMENT_SIZE } from '@legis/shared'
+import type { AgentSendInput, AgentPendingFile, FileDialogLargeFile, ModelOption, SDKMessage, SDKUserMessage } from '@runwork/shared'
+import { inferContextWindow, MAX_ATTACHMENT_SIZE } from '@runwork/shared'
 import { fileToBase64, formatFileNames, getFileParentPath } from '@/lib/file-utils'
 import { buildQuotedSelectionBlock } from '@/lib/quoted-selection'
 import { createClipboardPendingFile, createClipboardTextDraft, makeUniqueAttachmentName } from '@/lib/clipboard-text-attachment'
@@ -191,7 +191,7 @@ function getUserTextFromSDKMessage(message: SDKMessage): string | null {
 // ===== 思考模式 Hover Popover =====
 
 interface AgentThinkingPopoverProps {
-  agentThinking: import('@legis/shared').ThinkingConfig | undefined
+  agentThinking: import('@runwork/shared').ThinkingConfig | undefined
   onToggle: () => void
 }
 
@@ -531,7 +531,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
 
   // 检查 Agent 渠道列表中是否存在可用的模型（渠道 enabled + 模型 enabled）
   const hasAvailableModel = React.useMemo(() => {
-    // Legis 官方渠道（商业版）：只要 enabled 且有可用模型，直接视为可用
+    // RunWork 官方渠道（商业版）：只要 enabled 且有可用模型，直接视为可用
     const promaOfficial = globalChannels.find((c) => c.id === 'proma-official')
     if (promaOfficial?.enabled && promaOfficial.models.some((m) => m.enabled)) return true
     // 其他渠道：需在 agentChannelIds 白名单中
@@ -1644,7 +1644,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     const pendingFilesSnapshot = pendingFilesRef.current
     if (!messagesLoaded || (!effectiveText && pendingFilesSnapshot.length === 0) || !agentChannelId || !hasAvailableModel) return
 
-    // Legis 认证守卫：未登录时弹窗，不执行发送
+    // RunWork 认证守卫：未登录时弹窗，不执行发送
     if (authStatus !== 'authenticated') {
       requireAuth('创建 Agent 会话', () => { void handleSend(overrideText) })
       return
@@ -1885,7 +1885,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     const localUuid = crypto.randomUUID()
 
     // 1. 立即注入合成用户消息（/compact 气泡立刻可见，与普通发送路径一致）
-    const syntheticMsg: import('@legis/shared').SDKMessage = {
+    const syntheticMsg: import('@runwork/shared').SDKMessage = {
       type: 'user',
       uuid: localUuid,
       message: {
@@ -1893,7 +1893,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
       },
       parent_tool_use_id: null,
       _createdAt: streamStartedAt,
-    } as unknown as import('@legis/shared').SDKMessage
+    } as unknown as import('@runwork/shared').SDKMessage
 
     store.set(liveMessagesMapAtom, (prev) => {
       const map = new Map(prev)

@@ -1,12 +1,12 @@
 # 2026-07-03 登录认证系统
 
-> 新增远端认证（登录/登出/会话校验），对接 Legis-Server。服务器地址配置化而非硬编码。
+> 新增远端认证（登录/登出/会话校验），对接 RunWork-Server。服务器地址配置化而非硬编码。
 
 ---
 
 ## 背景与目的
 
-Legis 需要用户登录后才能使用，对接自建的 Legis-Server 认证服务。相比 Legis 项目原版的硬编码服务器地址，本次做了优化：**服务器地址通过 settings.json 配置化**，方便多环境部署。
+RunWork 需要用户登录后才能使用，对接自建的 RunWork-Server 认证服务。相比 RunWork 项目原版的硬编码服务器地址，本次做了优化：**服务器地址通过 settings.json 配置化**，方便多环境部署。
 
 ## 改动范围
 
@@ -30,10 +30,10 @@ Legis 需要用户登录后才能使用，对接自建的 Legis-Server 认证服
 
 ### 服务器地址配置化（核心优化）
 
-复用项目现有的 `~/.legis/settings.json` 配置体系（与代理、飞书、钉钉配置同级）：
+复用项目现有的 `~/.runwork/settings.json` 配置体系（与代理、飞书、钉钉配置同级）：
 
 ```json
-// ~/.legis/settings.json（或开发模式 ~/.legis-dev/settings.json）
+// ~/.runwork/settings.json（或开发模式 ~/.runwork-dev/settings.json）
 {
   "authServerUrl": "http://14.103.216.135:31006"
 }
@@ -90,7 +90,7 @@ if (!isLoggedIn) return <TooltipProvider><LoginScreen /></TooltipProvider>
 
 ### 修改认证服务器地址
 
-编辑 `~/.legis/settings.json`（正式版）或 `~/.legis-dev/settings.json`（开发版）：
+编辑 `~/.runwork/settings.json`（正式版）或 `~/.runwork-dev/settings.json`（开发版）：
 
 ```json
 {
@@ -98,13 +98,13 @@ if (!isLoggedIn) return <TooltipProvider><LoginScreen /></TooltipProvider>
 }
 ```
 
-### Legis-Server API 契约
+### RunWork-Server API 契约
 
 ## 配置说明
 
 ### 修改认证服务器地址
 
-编辑 `~/.legis/settings.json`（正式版）或 `~/.legis-dev/settings.json`（开发版）：
+编辑 `~/.runwork/settings.json`（正式版）或 `~/.runwork-dev/settings.json`（开发版）：
 
 ```json
 {
@@ -112,7 +112,7 @@ if (!isLoggedIn) return <TooltipProvider><LoginScreen /></TooltipProvider>
 }
 ```
 
-### Legis-Server API 契约
+### RunWork-Server API 契约
 
 | 接口 | 方法 | 请求 | 响应 |
 |---|---|---|---|
