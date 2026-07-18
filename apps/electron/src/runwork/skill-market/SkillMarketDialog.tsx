@@ -106,7 +106,7 @@ export function SkillMarketDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl gap-0 overflow-hidden p-0 max-h-[82vh]">
+      <DialogContent className="!max-w-5xl !flex !flex-col !gap-0 !p-0 max-h-[82vh] overflow-hidden">
         {/* 头部 */}
         <DialogHeader className="px-6 py-5">
           <div className="flex items-center gap-2.5">
@@ -131,7 +131,7 @@ export function SkillMarketDialog({
         </div>
 
         {/* 卡片网格 */}
-        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin px-6 py-4" style={{ maxHeight: 'calc(82vh - 180px)' }}>
+        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin px-6 py-4">
           {loadState === 'loading' ? (
             <div className="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground">
               <Loader2 size={24} className="animate-spin" />
