@@ -93,22 +93,22 @@ export function createWelcomeConversation(): ConversationMeta | null {
     const userMessage: ChatMessage = {
       id: randomUUID(),
       role: 'user',
-      content: '你好，我是一名律师，希望用 RunWork 提升工作效率。这是使用教程，请作为参考。',
+      content: '你好，我是 RunWork 的新用户，希望快速上手。这是使用教程，请作为参考。',
       createdAt: now,
       attachments: [attachment],
     }
     appendMessage(meta.id, userMessage)
 
-    // 4. 追加 assistant 欢迎消息（面向法律行业，突出核心能力，简洁专业）
+    // 4. 追加 assistant 欢迎消息（通用场景，突出核心能力）
     const assistantMessage: ChatMessage = {
       id: randomUUID(),
       role: 'assistant',
-      content: `你好，欢迎来到 RunWork。我是你的法律 AI 助手，可以帮你处理日常法律工作：
+      content: `你好，欢迎来到 RunWork！我是你的 AI 助手，可以帮你处理各种工作：
 
-• **合同审查与起草** — 上传合同，我逐条审查风险、标注关键条款
-• **法律研究** — 检索法条、梳理裁判规则、对比相似案例
-• **文书撰写** — 起诉状、答辩状、法律意见书、律师函、备忘录
-• **文档解析** — 支持 PDF、Word，自动提取关键信息
+• **多模型对话** — 支持 Claude、GPT、DeepSeek、智谱等主流模型，按需切换
+• **通用 Agent** — 读写文件、执行命令、调研分析、生成报告，自主完成多步骤任务
+• **文档解析** — 上传 PDF、Word、Excel，自动提取关键信息
+• **工作区隔离** — 多项目互不干扰，每个工作区独立的 Skills 和 MCP 配置
 
 直接在下方描述需求，或拖入文件开始即可。`,
       createdAt: now + 1,

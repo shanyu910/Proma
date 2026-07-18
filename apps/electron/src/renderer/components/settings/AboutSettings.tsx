@@ -445,7 +445,7 @@ export function AboutSettings(): React.ReactElement {
   return (
     <SettingsSection
       title="关于 RunWork"
-      description="面向法律行业的 AI Agent 桌面应用"
+      description="通用场景的 AI Agent 桌面应用"
     >
       <SettingsCard>
         <SettingsRow label="版本">
