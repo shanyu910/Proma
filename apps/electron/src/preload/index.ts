@@ -1061,6 +1061,14 @@ export interface ElectronAPI {
     /** 更新模型勾选状态（同步到 channel.models[].enabled） */
     updateModelSelection: (selectedModelIds: string[]) => Promise<void>
   }
+
+  // ===== RunWork Skill 市场 =====
+  skillMarket: {
+    /** 列出市场所有已发布的 Skill */
+    list: () => Promise<import('../runwork/skill-market/types').MarketSkill[]>
+    /** 下载并安装 Skill 到指定工作区 */
+    install: (skillId: string, workspaceSlug: string) => Promise<{ name: string }>
+  }
 }
 
 interface MigrationExportResult {
@@ -2416,6 +2424,13 @@ const electronAPI: ElectronAPI = {
     upsertOfficial: (input) => ipcRenderer.invoke('runwork:upsert-official-channel', input),
     updateModelSelection: (selectedModelIds: string[]) =>
       ipcRenderer.invoke('runwork:update-model-selection', selectedModelIds),
+  },
+
+  // ===== RunWork Skill 市场 =====
+  skillMarket: {
+    list: () => ipcRenderer.invoke('skill-market:list'),
+    install: (skillId: string, workspaceSlug: string) =>
+      ipcRenderer.invoke('skill-market:install', skillId, workspaceSlug),
   },
 }
 

@@ -36,6 +36,7 @@ import { BuiltinMcpDetailSheet } from './BuiltinMcpDetailSheet'
 import { ImportSkillDialog } from './ImportSkillDialog'
 import { WorkspaceMemoryTab } from './WorkspaceMemoryTab'
 import { groupSkills } from './skillGrouping'
+import { SkillMarketDialog } from '../../../runwork/skill-market/SkillMarketDialog'
 
 function buildSkillClassificationPrompt(input: {
   workspaceName: string
@@ -102,6 +103,7 @@ export function AgentSkillsView(): React.ReactElement {
   const [editingMcp, setEditingMcp] = React.useState<{ name: string; entry: McpServerEntry } | null>(null)
   const [selectedBuiltinMcp, setSelectedBuiltinMcp] = React.useState<BuiltinMcpServerSummary | null>(null)
   const [showImport, setShowImport] = React.useState(false)
+  const [showMarket, setShowMarket] = React.useState(false)
   const [wsPopoverOpen, setWsPopoverOpen] = React.useState(false)
   const [pendingDeleteSkill, setPendingDeleteSkill] = React.useState<SkillMeta | null>(null)
   const [pendingDeleteMcpName, setPendingDeleteMcpName] = React.useState<string | null>(null)
@@ -304,21 +306,16 @@ export function AgentSkillsView(): React.ReactElement {
           />
         </div>
 
-        {/* 社区市场（占位） */}
+        {/* 社区市场（Skill 市场） */}
         {tab === 'skills' && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                disabled
-                className="flex h-8 cursor-not-allowed items-center gap-1.5 rounded-lg border border-dashed border-border/60 px-3 text-[13px] font-medium text-foreground/35"
-              >
-                <Store size={14} />
-                <span>社区市场</span>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">即将上线：一键浏览、安装与更新社区 Skills</TooltipContent>
-          </Tooltip>
+          <button
+            type="button"
+            onClick={() => setShowMarket(true)}
+            className="flex h-8 items-center gap-1.5 rounded-lg border border-border/60 bg-content-area px-3 text-[13px] font-medium text-foreground/80 shadow-sm transition-colors hover:bg-foreground/[0.04]"
+          >
+            <Store size={14} />
+            <span>社区市场</span>
+          </button>
         )}
 
         {/* Skills：从其他工作区导入 */}
@@ -470,6 +467,15 @@ export function AgentSkillsView(): React.ReactElement {
         workspaceSlug={data.workspaceSlug}
         installedSkills={data.skills}
         onImported={() => bumpCapabilities((v) => v + 1)}
+      />
+
+      {/* Skill 市场弹窗 */}
+      <SkillMarketDialog
+        open={showMarket}
+        onOpenChange={setShowMarket}
+        workspaceSlug={data.workspaceSlug}
+        installedSlugs={new Set(data.skills.map((s) => s.slug))}
+        onInstalled={() => bumpCapabilities((v) => v + 1)}
       />
     </div>
   )

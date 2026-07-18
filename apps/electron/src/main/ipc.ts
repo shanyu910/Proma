@@ -159,6 +159,7 @@ import {
   handleSetSK,
   handleClearSK,
 } from '../runwork/secure/auth-secure-storage'
+import { listMarketSkills, installMarketSkill } from '../runwork/skill-market/skill-market-service'
 import { setBuiltinMcpUserEnabled } from './lib/builtin-mcp/settings'
 import { setDockBadgeCount } from './lib/dock-badge-service'
 
@@ -4378,5 +4379,20 @@ export function registerIpcHandlers(): void {
   // ===== RunWork 模型勾选同步（更新官方渠道的 model.enabled） =====
   ipcMain.handle('runwork:update-model-selection', (_event, selectedModelIds: string[]) => {
     updateOfficialChannelModelSelection(selectedModelIds)
+  })
+
+  // ===== RunWork Skill 市场 =====
+  ipcMain.handle('skill-market:list', async () => {
+    return listMarketSkills()
+  })
+
+  ipcMain.handle('skill-market:install', async (_event, skillId: string, workspaceSlug: string) => {
+    // 先拉列表找到对应 Skill 的完整元数据（含 downloadUrl、packageSha256）
+    const skills = await listMarketSkills()
+    const skill = skills.find((s) => s.skillId === skillId)
+    if (!skill) {
+      throw new Error(`Skill ${skillId} 不存在于市场`)
+    }
+    return installMarketSkill(skill, workspaceSlug)
   })
 }
