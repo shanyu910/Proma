@@ -12,7 +12,6 @@ import { Store, Search, RefreshCw, Loader2 } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
@@ -107,21 +106,19 @@ export function SkillMarketDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex flex-col gap-5 p-0 max-h-[82vh] overflow-hidden"
+        className="flex flex-col gap-4 max-h-[82vh] overflow-hidden"
         style={{ width: 'min(960px, 90vw)', maxWidth: '90vw' }}
       >
         {/* 头部 */}
-        <DialogHeader className="px-6 pt-7 pb-1">
-          <div className="flex items-center gap-2.5">
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-primary">
-              <Store size={16} />
-            </div>
-            <DialogTitle className="text-lg">Skill 市场</DialogTitle>
+        <div className="flex items-center gap-2.5 px-6 pt-7 pb-1">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-primary shrink-0">
+            <Store size={16} />
           </div>
-        </DialogHeader>
+          <DialogTitle className="text-lg">Skill 市场</DialogTitle>
+        </div>
 
         {/* 搜索栏 */}
-        <div className="px-6 pb-3">
+        <div className="px-6">
           <div className="flex items-center gap-2 h-9 rounded-lg border border-border/60 bg-muted/50 px-3 focus-within:border-primary/40 transition-colors">
             <Search size={15} className="shrink-0 text-muted-foreground/60" />
             <input
@@ -172,7 +169,7 @@ export function SkillMarketDialog({
         </div>
 
         {/* 底部状态栏 */}
-        <div className="flex items-center justify-between px-6 py-3 border-t border-border/30">
+        <div className="flex items-center justify-between px-6 pb-5 pt-3 border-t border-border/30">
           <span className="text-xs text-muted-foreground">
             {loadState === 'success' && `共 ${skills.length} 个 Skill · 已安装 ${installedCount} 个`}
           </span>
