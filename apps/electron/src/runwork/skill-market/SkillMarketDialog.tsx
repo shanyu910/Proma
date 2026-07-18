@@ -8,7 +8,7 @@
 
 import * as React from 'react'
 import { toast } from 'sonner'
-import { Store, Search, RefreshCw, Loader2 } from 'lucide-react'
+import { Store, Search, RefreshCw, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -31,6 +31,9 @@ interface SkillMarketDialogProps {
 
 type LoadState = 'loading' | 'success' | 'error'
 
+/** 每页显示数量（三列 × 三行 = 9） */
+const PAGE_SIZE = 9
+
 export function SkillMarketDialog({
   open,
   onOpenChange,
@@ -41,6 +44,7 @@ export function SkillMarketDialog({
   const [skills, setSkills] = React.useState<MarketSkill[]>([])
   const [loadState, setLoadState] = React.useState<LoadState>('loading')
   const [search, setSearch] = React.useState('')
+  const [currentPage, setCurrentPage] = React.useState(1)
   const [installingSlug, setInstallingSlug] = React.useState<string | null>(null)
   // 记录本次会话中安装成功的 slug（立即显示"已安装"，无需等父组件刷新）
   const [sessionInstalled, setSessionInstalled] = React.useState<Set<string>>(new Set())
@@ -62,8 +66,15 @@ export function SkillMarketDialog({
     if (open) {
       loadSkills()
       setSearch('')
+      setCurrentPage(1)
     }
   }, [open, loadSkills])
+
+  /** 搜索变化时重置到第一页 */
+  const handleSearchChange = (value: string): void => {
+    setSearch(value)
+    setCurrentPage(1)
+  }
 
   /** 安装某个 Skill */
   const handleInstall = async (skill: MarketSkill): Promise<void> => {
@@ -103,6 +114,12 @@ export function SkillMarketDialog({
 
   const installedCount = skills.filter((s) => getInstallStatus(s) === 'installed').length
 
+  /** 分页计算 */
+  const totalPages = Math.ceil(filteredSkills.length / PAGE_SIZE) || 1
+  const safePage = Math.min(currentPage, totalPages)
+  const pageStart = (safePage - 1) * PAGE_SIZE
+  const pageSkills = filteredSkills.slice(pageStart, pageStart + PAGE_SIZE)
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -123,7 +140,7 @@ export function SkillMarketDialog({
             <Search size={15} className="shrink-0 text-muted-foreground/60" />
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="搜索 Skill..."
               className="w-full bg-transparent text-sm text-foreground placeholder:text-foreground/35 focus:outline-none"
             />
@@ -155,23 +172,52 @@ export function SkillMarketDialog({
               </span>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-3">
-              {filteredSkills.map((skill) => (
-                <SkillMarketCard
-                  key={skill.skillId}
-                  skill={skill}
-                  status={getInstallStatus(skill)}
-                  onInstall={() => void handleInstall(skill)}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-3 gap-3">
+                {pageSkills.map((skill) => (
+                  <SkillMarketCard
+                    key={skill.skillId}
+                    skill={skill}
+                    status={getInstallStatus(skill)}
+                    onInstall={() => void handleInstall(skill)}
+                  />
+                ))}
+              </div>
+
+              {/* 分页控件 */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-4 pt-6 pb-2">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={safePage <= 1}
+                    className="flex items-center gap-1 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-foreground/80 transition-colors hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft size={14} />
+                    上一页
+                  </button>
+
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {safePage} / {totalPages}
+                  </span>
+
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={safePage >= totalPages}
+                    className="flex items-center gap-1 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-foreground/80 transition-colors hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    下一页
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
 
         {/* 底部状态栏 */}
         <div className="flex items-center justify-between px-6 pb-5 pt-3 border-t border-border/30">
           <span className="text-xs text-muted-foreground">
-            {loadState === 'success' && `共 ${skills.length} 个 Skill · 已安装 ${installedCount} 个`}
+            {loadState === 'success' && `共 ${filteredSkills.length} 个 Skill · 已安装 ${installedCount} 个`}
           </span>
           <button
             onClick={() => void loadSkills()}
