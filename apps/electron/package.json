@@ -1,6 +1,6 @@
 {
   "name": "@runwork/electron",
-  "version": "0.0.5",
+  "version": "1.0.0",
   "description": "RunWork next gen ai software with general agents - Electron App",
   "main": "dist/main.cjs",
   "author": {
