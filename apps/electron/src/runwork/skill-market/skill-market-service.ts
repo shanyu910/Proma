@@ -4,16 +4,29 @@
  * 调用 RunWork-Server 的 /skills 接口，获取市场 Skill 列表，
  * 下载 zip 包（自动跟随 302 重定向到 TOS），校验 SHA256，
  * 解压到指定工作区的 skills/ 目录。
+ *
+ * 注意：本模块在主进程运行，不能用 import.meta.env（那是 Vite 渲染进程的）。
+ * 服务器地址用 process.env 或硬编码默认值。
  */
 
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { mkdirSync, existsSync, rmSync } from 'node:fs'
 import { getWorkspaceSkillsDir } from '../../main/lib/config-paths'
-import { getServerUrl } from '../auth/auth-api'
 import { getStoredToken } from '../auth/auth-state'
 import type { MarketSkill, MarketSkillsResponse } from './types'
 import { extractZipToDir } from './skill-installer'
+
+/**
+ * 获取服务器地址（主进程版）
+ *
+ * 主进程不能用 import.meta.env（Vite 渲染进程专属）。
+ * 优先用 process.env.RUNWORK_SERVER_URL（CI/开发时注入），
+ * 否则用硬编码默认值（生产环境）。
+ */
+function getServerUrl(): string {
+  return process.env.RUNWORK_SERVER_URL || 'http://14.103.216.135:31006'
+}
 
 /**
  * 列出市场所有已发布的 Skill
