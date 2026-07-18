@@ -17,6 +17,14 @@ on:
   push:
     tags:
       - 'v*'
+  # 手动触发：用于 tag commit 不在默认分支时（如 RunWork 分支的 tag）
+  # 在 Actions 页面 → Release → Run workflow → 输入 ref（如 v1.0.0 或 RunWork）
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: '要打包的 git ref（tag 名或分支名，如 v1.0.0）'
+        required: true
+        default: 'v1.0.0'
 
 permissions:
   contents: write
@@ -29,6 +37,9 @@ jobs:
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
+        with:
+          # push tag 触发时用 tag 对应 commit；workflow_dispatch 手动触发时用输入的 ref
+          ref: ${{ github.event.inputs.ref || github.ref }}
 
       - name: 安装 Bun
         uses: oven-sh/setup-bun@v2
@@ -92,6 +103,9 @@ jobs:
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
+        with:
+          # push tag 触发时用 tag 对应 commit；workflow_dispatch 手动触发时用输入的 ref
+          ref: ${{ github.event.inputs.ref || github.ref }}
 
       - name: 安装 Bun
         uses: oven-sh/setup-bun@v2
@@ -291,6 +305,9 @@ jobs:
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
+        with:
+          # push tag 触发时用 tag 对应 commit；workflow_dispatch 手动触发时用输入的 ref
+          ref: ${{ github.event.inputs.ref || github.ref }}
 
       - name: 安装 Bun
         uses: oven-sh/setup-bun@v2
