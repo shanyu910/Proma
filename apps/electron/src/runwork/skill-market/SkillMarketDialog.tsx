@@ -107,11 +107,11 @@ export function SkillMarketDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex flex-col p-0 max-h-[82vh] overflow-hidden"
+        className="flex flex-col gap-5 p-0 max-h-[82vh] overflow-hidden"
         style={{ width: 'min(960px, 90vw)', maxWidth: '90vw' }}
       >
         {/* 头部 */}
-        <DialogHeader className="px-6 py-5">
+        <DialogHeader className="px-6 pt-7 pb-1">
           <div className="flex items-center gap-2.5">
             <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-primary">
               <Store size={16} />
