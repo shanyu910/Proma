@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { mkdirSync, existsSync, rmSync } from 'node:fs'
 import { getWorkspaceSkillsDir } from '../../main/lib/config-paths'
-import { getStoredToken } from '../auth/auth-state'
+import { handleSecureTokenGet } from '../secure/auth-secure-storage'
 import type { MarketSkill, MarketSkillsResponse } from './types'
 import { extractZipToDir } from './skill-installer'
 
@@ -22,10 +22,12 @@ import { extractZipToDir } from './skill-installer'
  *
  * 主进程不能用 import.meta.env（Vite 渲染进程专属）。
  * 优先用 process.env.RUNWORK_SERVER_URL（CI/开发时注入），
- * 否则用硬编码默认值（生产环境）。
+ * 否则用硬编码默认值。
+ *
+ * TODO: 正式发布前改回生产地址 http://14.103.216.135:31006
  */
 function getServerUrl(): string {
-  return process.env.RUNWORK_SERVER_URL || 'http://14.103.216.135:31006'
+  return process.env.RUNWORK_SERVER_URL || 'http://10.167.1.251:31006'
 }
 
 /**
@@ -35,7 +37,7 @@ function getServerUrl(): string {
  * 需要 token（跟认证服务同一套）。
  */
 export async function listMarketSkills(): Promise<MarketSkill[]> {
-  const token = await getStoredToken()
+  const token = await handleSecureTokenGet()
   if (!token) {
     throw new Error('未登录，无法获取 Skill 市场')
   }
@@ -75,7 +77,7 @@ export async function installMarketSkill(
   skill: MarketSkill,
   workspaceSlug: string,
 ): Promise<{ name: string }> {
-  const token = await getStoredToken()
+  const token = await handleSecureTokenGet()
   if (!token) {
     throw new Error('未登录，无法安装 Skill')
   }
