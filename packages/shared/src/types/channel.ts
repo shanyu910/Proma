@@ -12,10 +12,12 @@ export type ProviderType =
   | 'anthropic'
   | 'anthropic-compatible'
   | 'openai'
+  | 'openai-responses'
   | 'deepseek'
   | 'google'
   | 'kimi-api'
   | 'kimi-coding'
+  | 'opencode-go-openai'
   | 'zhipu'
   | 'zhipu-coding'
   | 'zhipu-coding-team'
@@ -24,8 +26,16 @@ export type ProviderType =
   | 'doubao'
   | 'qwen'
   | 'qwen-anthropic'
+  | 'qwen-token-plan'
   | 'xiaomi'
   | 'xiaomi-token-plan'
+  | 'openai-codex'
+  /**
+   * OpenAI Chat Completions 的自定义请求地址。
+   *
+   * Chat 会原样请求 `baseUrl`；`openai` 则将其视为协议根地址并自动补
+   * `/chat/completions`。这保留了接入自定义网关的能力。
+   */
   | 'custom'
 
 /**
@@ -35,10 +45,12 @@ export const PROVIDER_DEFAULT_URLS: Record<ProviderType, string> = {
   anthropic: 'https://api.anthropic.com',
   'anthropic-compatible': '',
   openai: 'https://api.openai.com/v1',
+  'openai-responses': 'https://api.openai.com/v1',
   deepseek: 'https://api.deepseek.com/anthropic',
   google: 'https://generativelanguage.googleapis.com',
   'kimi-api': 'https://api.moonshot.cn/anthropic',
   'kimi-coding': 'https://api.kimi.com/coding/v1',
+  'opencode-go-openai': 'https://opencode.ai/zen/go/v1',
   zhipu: 'https://open.bigmodel.cn/api/paas/v4',
   'zhipu-coding': 'https://open.bigmodel.cn/api/anthropic',
   'zhipu-coding-team': 'https://open.bigmodel.cn/api/anthropic',
@@ -47,8 +59,12 @@ export const PROVIDER_DEFAULT_URLS: Record<ProviderType, string> = {
   doubao: 'https://ark.cn-beijing.volces.com/api/v3',
   qwen: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
   'qwen-anthropic': 'https://dashscope.aliyuncs.com/apps/anthropic',
+  // Token Plan Anthropic endpoint is provided as a complete messages URL.
+  'qwen-token-plan': 'https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic/v1/messages',
   xiaomi: 'https://api.xiaomimimo.com/anthropic',
   'xiaomi-token-plan': 'https://token-plan-cn.xiaomimimo.com/anthropic',
+  // ChatGPT 订阅登录：baseUrl 由 Pi SDK 内部管理（登录后从 OAuth token 派生），无需用户填写。
+  'openai-codex': '',
   custom: '',
 }
 
@@ -59,10 +75,12 @@ export const PROVIDER_LABELS: Record<ProviderType, string> = {
   anthropic: 'Anthropic',
   'anthropic-compatible': 'Anthropic 兼容格式',
   openai: 'OpenAI',
+  'openai-responses': 'OpenAI Responses 格式',
   deepseek: 'DeepSeek',
   google: 'Google',
   'kimi-api': 'Kimi API (Anthropic 协议)',
   'kimi-coding': 'Kimi Coding Plan',
+  'opencode-go-openai': 'OpenCode Go (OpenAI 协议)',
   zhipu: '智谱 AI',
   'zhipu-coding': '智谱 Coding Plan',
   'zhipu-coding-team': '智谱 Coding Plan 团队版',
@@ -71,15 +89,17 @@ export const PROVIDER_LABELS: Record<ProviderType, string> = {
   doubao: '豆包',
   qwen: '通义千问',
   'qwen-anthropic': '通义千问 (Anthropic 协议)',
+  'qwen-token-plan': '通义千问 Token Plan',
   xiaomi: '小米 MiMo (API)',
   'xiaomi-token-plan': '小米 MiMo Token Plan',
-  custom: 'OpenAI 兼容格式',
+  'openai-codex': 'ChatGPT 订阅 (Codex)',
+  custom: 'OpenAI Chat Completions（自定义地址）',
 }
 
 /**
- * 支持 Agent 模式的供应商类型
+ * 支持 Claude Agent Core 的供应商类型
  *
- * Agent SDK 通过 Anthropic 兼容协议调用 `/v1/messages` 端点，
+ * Claude Agent SDK 通过 Anthropic 兼容协议调用 `/v1/messages` 端点，
  * 因此所有 Anthropic 协议兼容的供应商都可以用于 Agent。
  */
 export const AGENT_COMPATIBLE_PROVIDERS: ReadonlySet<ProviderType> = new Set<ProviderType>([
@@ -95,10 +115,11 @@ export const AGENT_COMPATIBLE_PROVIDERS: ReadonlySet<ProviderType> = new Set<Pro
   'xiaomi',
   'xiaomi-token-plan',
   'qwen-anthropic',
+  'qwen-token-plan',
 ])
 
 /**
- * 判断供应商是否兼容 Agent 模式
+ * 判断供应商是否兼容 Claude Agent Core
  */
 export function isAgentCompatibleProvider(provider: ProviderType): boolean {
   return AGENT_COMPATIBLE_PROVIDERS.has(provider)
@@ -162,6 +183,62 @@ export function extractZhipuCodingTeamApiToken(secret: string): string {
   if (credentials) return credentials.apiKey
   const trimmed = secret.trim()
   return trimmed || secret
+}
+
+/**
+ * ChatGPT (OpenAI Codex) OAuth 凭据。
+ *
+ * 复用 Channel.apiKey 字段承载：序列化为 JSON 后经 safeStorage 加密存储，
+ * 与 zhipu-coding-team 的结构化 secret 同一套「凭据塞进 apiKey 字段」模式，
+ * 避免为 OAuth 单独扩展存储 schema。字段命名对齐 Pi SDK 的 OAuthCredentials
+ * （access/refresh/expires），expires 为 Unix 毫秒时间戳。
+ */
+export interface CodexOAuthCredentials {
+  /** access token（作为 bearer token 传给 Pi SDK provider） */
+  access: string
+  /** refresh token（过期时用于换取新 token） */
+  refresh: string
+  /** access token 过期时间戳（Unix 毫秒） */
+  expires: number
+  /** 可选：从 id_token 解析出的账号标识，用于展示登录身份 */
+  accountId?: string
+}
+
+/** 将 OAuth 凭据序列化为存入 apiKey 字段的 JSON 字符串。 */
+export function serializeCodexCredentials(credentials: CodexOAuthCredentials): string {
+  return JSON.stringify(credentials)
+}
+
+/** 从 apiKey 字段解析 OAuth 凭据；非合法 JSON 或缺少必需字段时返回 null。 */
+export function parseCodexCredentials(secret: string): CodexOAuthCredentials | null {
+  const trimmed = secret.trim()
+  if (!trimmed) return null
+  try {
+    const parsed = JSON.parse(trimmed) as Partial<CodexOAuthCredentials>
+    if (typeof parsed.access === 'string' && parsed.access
+      && typeof parsed.refresh === 'string' && parsed.refresh
+      && typeof parsed.expires === 'number') {
+      return {
+        access: parsed.access,
+        refresh: parsed.refresh,
+        expires: parsed.expires,
+        ...(typeof parsed.accountId === 'string' && parsed.accountId ? { accountId: parsed.accountId } : {}),
+      }
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
+/**
+ * 判断 OAuth 凭据是否已过期或即将过期。
+ *
+ * 默认预留 60s 时钟偏移余量，确保 access token 在真正过期前就触发刷新，
+ * 避免边界请求打出去才发现过期。
+ */
+export function isCodexCredentialExpired(credentials: CodexOAuthCredentials, skewMs = 60_000): boolean {
+  return Date.now() >= credentials.expires - skewMs
 }
 
 /**
@@ -370,4 +447,28 @@ export const CHANNEL_IPC_CHANNELS = {
   TEST_DIRECT: 'channel:test-direct',
   /** 查询订阅 Plan 额度 */
   GET_PLAN_QUOTA: 'channel:get-plan-quota',
+  /** 发起 ChatGPT (Codex) OAuth 登录，返回加密凭据与账号信息 */
+  CODEX_OAUTH_LOGIN: 'channel:codex-oauth-login',
+  /** 取消进行中的 ChatGPT OAuth 登录流程 */
+  CODEX_OAUTH_CANCEL: 'channel:codex-oauth-cancel',
 } as const
+
+/**
+ * ChatGPT (Codex) OAuth 登录结果。
+ *
+ * 登录在主进程执行（Pi SDK 的 codex 流程用 Node crypto + 本地回调服务），
+ * 成功后返回已加密的凭据 JSON（可直接作为 Channel.apiKey 存储）与展示信息。
+ */
+export interface CodexOAuthLoginResult {
+  /** 是否登录成功 */
+  success: boolean
+  /**
+   * 序列化后的凭据 JSON（明文）。与现有 apiKey 明文回传模式一致：
+   * 渲染层拿到后作为 Channel.apiKey 传给 create/update，由 channel-manager 加密存储。
+   */
+  credentials?: string
+  /** 登录账号标识，用于 UI 展示 */
+  accountId?: string
+  /** 失败或取消时的用户可读原因 */
+  message?: string
+}

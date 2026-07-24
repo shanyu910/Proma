@@ -29,6 +29,8 @@ import {
 } from './bridge-model-utils'
 import type { BridgeChatBindingStore } from './bridge-binding-store'
 import { filterExistingBridgeBindings } from './bridge-binding-store'
+import { extractFinalAssistantText } from './bridge-agent-message-utils'
+import { redactSensitiveLogText, redactSensitiveLogValue } from './bridge-log-redaction'
 
 // ===== 接口定义 =====
 
@@ -79,19 +81,6 @@ interface SessionBuffer {
   startedAt: number
 }
 
-/** Agent SDK 消息中的内容块 */
-interface ContentBlock {
-  type: string
-  text?: string
-}
-
-/** Agent SDK assistant 消息结构 */
-interface AssistantMessagePayload {
-  message?: {
-    content?: ContentBlock[]
-  }
-}
-
 // ===== 命令处理器实现 =====
 
 export class BridgeCommandHandler {
@@ -109,7 +98,7 @@ export class BridgeCommandHandler {
 
   constructor(config: BridgeCommandHandlerConfig) {
     this.config = config
-    this.log = (msg: string) => console.log(`[${config.platformName} Bridge] ${msg}`)
+    this.log = (msg: string) => console.log(`[${config.platformName} Bridge] ${redactSensitiveLogText(msg)}`)
     this.loadPersistedBindings()
   }
 
@@ -149,6 +138,8 @@ export class BridgeCommandHandler {
       `${this.config.platformName}会话`,
       channelId,
       workspaceId || undefined,
+      undefined,
+      settings.agentRuntime ?? 'pi',
     )
 
     const binding: BridgeChatBinding = {
@@ -311,6 +302,8 @@ export class BridgeCommandHandler {
       title || '新会话',
       channelId,
       workspaceId || undefined,
+      undefined,
+      settings.agentRuntime ?? 'pi',
     )
 
     // 清理旧绑定
@@ -745,7 +738,7 @@ export class BridgeCommandHandler {
     runAgentHeadless(input, {
       onError: (error) => {
         this.log(`Agent 错误: ${error}`)
-        this.send(chatId, `❌ Agent 错误: ${error}`, contextData).catch(console.error)
+        this.send(chatId, `❌ Agent 错误: ${error}`, contextData).catch((sendError) => console.error(`[${this.config.platformName} Bridge] 发送错误消息失败:`, redactSensitiveLogValue(sendError)))
         this.sessionBuffers.delete(binding!.sessionId)
       },
       onComplete: () => {
@@ -766,14 +759,10 @@ export class BridgeCommandHandler {
     if (payload.kind === 'sdk_message') {
       const msg = payload.message
 
-      // 从 assistant 消息中提取文本
+      // 从 assistant 终态消息中提取文本。Pi 的 _partial 预览帧携带累计全文，
+      // 如果进入 buffer，会在钉钉/微信最终回复里形成多段重复内容。
       if (msg.type === 'assistant') {
-        const aMsg = msg as AssistantMessagePayload
-        for (const block of aMsg.message?.content ?? []) {
-          if (block.type === 'text' && block.text) {
-            buffer.text += block.text
-          }
-        }
+        buffer.text += extractFinalAssistantText(msg)
       }
 
       // result → 会话完成
@@ -791,7 +780,7 @@ export class BridgeCommandHandler {
     const replyText = buffer.text.trim() || '✅ Agent 已完成（无文本输出）'
 
     this.log(`Agent 回复 (${duration}s): ${replyText.slice(0, 100)}${replyText.length > 100 ? '...' : ''}`)
-    this.send(buffer.chatId, replyText, buffer.contextData).catch(console.error)
+    this.send(buffer.chatId, replyText, buffer.contextData).catch((sendError) => console.error(`[${this.config.platformName} Bridge] 发送回复失败:`, redactSensitiveLogValue(sendError)))
     this.sessionBuffers.delete(sessionId)
   }
 

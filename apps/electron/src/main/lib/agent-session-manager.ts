@@ -10,7 +10,7 @@
 
 import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync, unlinkSync, readdirSync, createReadStream, createWriteStream, type WriteStream } from 'node:fs'
 import { createInterface } from 'node:readline'
-import { writeJsonFileAtomic, readJsonFileSafe } from './safe-file'
+import { writeJsonFileAtomic, writeTextFileAtomic, readJsonFileSafe } from './safe-file'
 import { randomUUID } from 'node:crypto'
 import { rmSyncWithRetry, renameWithRetry } from './fs-retry'
 import { join, resolve, dirname } from 'node:path'
@@ -23,6 +23,9 @@ import {
   getSdkConfigDir,
 } from './config-paths'
 import { getAgentWorkspace, getWorkspaceAutoMemoryDir } from './agent-workspace-manager'
+import { resolvePiThinkingLevel } from './agent-thinking-level'
+import { getSettings } from './settings-service'
+import { applyClaudeSdkAttributionSettings, isGitAttributionEnabled } from './agent-git-attribution'
 
 // 在模块加载时一次性设置 SDK 配置目录，避免在 forkSession 等异步调用中临时修改/恢复
 // process.env 导致的并发安全问题（异步操作的 await 间隙其他代码可能读到错误值）
@@ -37,6 +40,7 @@ import type {
   AgentMessageSearchResult,
   AgentSessionReferenceSearchInput,
   AgentSessionReferenceSearchResult,
+  AgentRuntime,
 } from '@proma/shared'
 import { migratePermissionMode } from '@proma/shared'
 import { getConversationMessages } from './conversation-manager'
@@ -54,6 +58,8 @@ interface AgentSessionsIndex {
   version: number
   /** 会话元数据列表 */
   sessions: AgentSessionMeta[]
+  /** 是否已将旧版默认关闭的 OpenAI 推理会话升级为默认开启。 */
+  openAIThinkingDefaultEnabledMigrationCompleted?: boolean
 }
 
 /** 当前索引版本 */
@@ -137,19 +143,46 @@ function migrateLegacyPermissionMode(index: AgentSessionsIndex): boolean {
 }
 
 /**
+ * 在此版本前，所有新建 OpenAI Agent 会话都会写入 off，无法与用户主动关闭区分。
+ * 因此仅执行一次历史升级；之后用户手动关闭会保留 off。
+ */
+function migrateLegacyOpenAIThinkingDefault(index: AgentSessionsIndex): boolean {
+  if (index.openAIThinkingDefaultEnabledMigrationCompleted) return false
+
+  for (const session of index.sessions) {
+    if (session.openAIThinkingLevel === 'off') {
+      session.openAIThinkingLevel = 'high'
+    }
+  }
+  index.openAIThinkingDefaultEnabledMigrationCompleted = true
+  return true
+}
+
+/**
  * 读取会话索引文件
  */
 function readIndex(): AgentSessionsIndex {
   const indexPath = getAgentSessionsIndexPath()
   const data = readJsonFileSafe<AgentSessionsIndex>(indexPath)
   if (data) {
-    if (migrateLegacyPermissionMode(data)) {
+    const permissionModeMigrated = migrateLegacyPermissionMode(data)
+    const thinkingDefaultMigrated = migrateLegacyOpenAIThinkingDefault(data)
+    if (permissionModeMigrated || thinkingDefaultMigrated) {
       writeIndex(data)
-      console.log('[Agent 会话] 已迁移历史权限模式 auto → bypassPermissions')
+      if (permissionModeMigrated) {
+        console.log('[Agent 会话] 已迁移历史权限模式 auto → bypassPermissions')
+      }
+      if (thinkingDefaultMigrated) {
+        console.log('[Agent 会话] 已将历史 OpenAI 会话的思考深度默认值升级为高')
+      }
     }
     return data
   }
-  return { version: INDEX_VERSION, sessions: [] }
+  return {
+    version: INDEX_VERSION,
+    sessions: [],
+    openAIThinkingDefaultEnabledMigrationCompleted: true,
+  }
 }
 
 /**
@@ -190,16 +223,23 @@ export function createAgentSession(
   channelId?: string,
   workspaceId?: string,
   modelId?: string,
+  agentRuntime: AgentRuntime = 'pi',
 ): AgentSessionMeta {
   const index = readIndex()
   const now = Date.now()
 
+  const settings = getSettings()
+  const defaultThinkingLevel = settings.defaultOpenAIThinkingLevel
+    ?? resolvePiThinkingLevel(settings, undefined, 'openai-codex')
   const meta: AgentSessionMeta = {
     id: randomUUID(),
     title: title || '新 Agent 会话',
     channelId,
     modelId,
     workspaceId,
+    agentRuntime,
+    // 新会话继承已持久化的全局思考偏好，之后仍可按会话单独调整。
+    openAIThinkingLevel: defaultThinkingLevel,
     createdAt: now,
     updatedAt: now,
   }
@@ -236,6 +276,13 @@ export function createAgentSession(
       const autoMemoryDirectory = getWorkspaceAutoMemoryDir(ws.slug)
       if (sdkSettings.autoMemoryDirectory !== autoMemoryDirectory) {
         sdkSettings.autoMemoryDirectory = autoMemoryDirectory
+        needsWrite = true
+      }
+      // Proma Git/PR 推广标识：覆盖 Claude SDK 默认 Co-Authored-By
+      if (applyClaudeSdkAttributionSettings(
+        sdkSettings,
+        isGitAttributionEnabled(getSettings().gitAttributionEnabled),
+      )) {
         needsWrite = true
       }
       if (needsWrite) {
@@ -403,7 +450,7 @@ export function getAgentSessionSDKMessages(id: string): SDKMessage[] {
  */
 export function updateAgentSessionMeta(
   id: string,
-  updates: Partial<Pick<AgentSessionMeta, 'title' | 'channelId' | 'modelId' | 'sdkSessionId' | 'workspaceId' | 'pinned' | 'archived' | 'attachedDirectories' | 'attachedFiles' | 'forkSourceDir' | 'forkSourceSdkSessionId' | 'resumeAtMessageUuid' | 'stoppedByUser' | 'permissionMode' | 'completedButUnconfirmed' | 'sourceAutomationId' | 'automationGraduated' | 'parentSessionId' | 'rootSessionId' | 'sourceDelegationId' | 'delegationRole' | 'delegationStatus' | 'delegationDepth' | 'delegationGoal'>>,
+  updates: Partial<Pick<AgentSessionMeta, 'title' | 'channelId' | 'modelId' | 'sdkSessionId' | 'piSessionFile' | 'piEntryBindings' | 'agentRuntime' | 'codexFastMode' | 'openAIThinkingLevel' | 'workspaceId' | 'pinned' | 'starred' | 'archived' | 'attachedDirectories' | 'attachedFiles' | 'forkSourceDir' | 'forkSourceSdkSessionId' | 'resumeAtMessageUuid' | 'stoppedByUser' | 'permissionMode' | 'completedButUnconfirmed' | 'sourceAutomationId' | 'automationGraduated' | 'parentSessionId' | 'rootSessionId' | 'sourceDelegationId' | 'delegationRole' | 'delegationStatus' | 'delegationDepth' | 'delegationGoal'>>,
 ): AgentSessionMeta {
   const index = readIndex()
   const idx = index.sessions.findIndex((s) => s.id === id)
@@ -413,14 +460,17 @@ export function updateAgentSessionMeta(
   }
 
   const existing = index.sessions[idx]!
-  // 非手动归档操作时，若会话已归档则自动恢复为活跃（仅更新 stoppedByUser 不触发解归档）
-  const isStoppedByUserOnly = Object.keys(updates).every((k) => k === 'stoppedByUser')
-  const autoUnarchive = existing.archived && !('archived' in updates) && !isStoppedByUserOnly
+  const updateKeys = Object.keys(updates)
+  // 星标只是侧栏的视觉标记，不应改变会话的新鲜度或归档状态。
+  const isStarredOnly = updateKeys.every((key) => key === 'starred')
+  // 非手动归档操作时，若会话已归档则自动恢复为活跃（仅更新 stoppedByUser 或 starred 不触发解归档）
+  const isStoppedByUserOnly = updateKeys.every((key) => key === 'stoppedByUser')
+  const autoUnarchive = existing.archived && !('archived' in updates) && !isStoppedByUserOnly && !isStarredOnly
   const updated: AgentSessionMeta = {
     ...existing,
     ...updates,
     ...(autoUnarchive ? { archived: false } : {}),
-    updatedAt: Date.now(),
+    updatedAt: isStarredOnly ? existing.updatedAt : Date.now(),
   }
 
   index.sessions[idx] = updated
@@ -698,6 +748,10 @@ export async function forkAgentSession(input: ForkSessionInput): Promise<AgentSe
     throw new Error('该会话没有 SDK session，无法分叉')
   }
 
+  if (sourceMeta.agentRuntime === 'pi') {
+    return forkPiAgentSession(sourceMeta, input)
+  }
+
   const forkModelId = input.modelId !== undefined
     ? assertEnabledModelForChannel({
         channelId: sourceMeta.channelId,
@@ -769,6 +823,7 @@ export async function forkAgentSession(input: ForkSessionInput): Promise<AgentSe
     sourceMeta.channelId,
     sourceMeta.workspaceId,
     forkModelId,
+    'claude',
   )
 
   updateAgentSessionMeta(newMeta.id, {
@@ -847,6 +902,95 @@ export async function forkAgentSession(input: ForkSessionInput): Promise<AgentSe
 
   console.log(`[Agent 会话] 分叉会话已创建（SDK 原生 fork）: ${sourceMeta.title} → ${forkTitle} (${copiedMessages} 条消息, sdkSessionId=${forkResult.sessionId})`)
   return newMeta
+}
+
+/**
+ * Pi 的 session 是 append-only tree。分叉必须由 SessionManager 导出目标 branch，
+ * 不能只复制 Proma 的展示 JSONL，否则下一轮 resume 仍会看到被截断的上下文。
+ */
+async function forkPiAgentSession(sourceMeta: AgentSessionMeta, input: ForkSessionInput): Promise<AgentSessionMeta> {
+  const targetUuid = input.upToMessageUuid
+  if (!targetUuid) throw new Error('Pi 分叉需要指定一条已完成的 assistant 消息')
+  const entryId = sourceMeta.piEntryBindings?.[targetUuid]
+  if (!entryId) throw new Error('该 Pi 历史消息尚无 entry ID 映射，无法安全分叉；请在新版 Proma 中继续一次对话后再试')
+  if (!sourceMeta.piSessionFile || !existsSync(sourceMeta.piSessionFile)) {
+    throw new Error('未找到 Pi session artifact，无法安全分叉')
+  }
+
+  const forkModelId = input.modelId !== undefined
+    ? assertEnabledModelForChannel({ channelId: sourceMeta.channelId, modelId: input.modelId, purpose: '分叉 Pi Agent 会话' })
+    : sourceMeta.modelId
+  const sourceDir = sourceMeta.workspaceId
+    ? getAgentWorkspace(sourceMeta.workspaceId)
+      ? getAgentSessionWorkspacePath(getAgentWorkspace(sourceMeta.workspaceId)!.slug, sourceMeta.id)
+      : undefined
+    : undefined
+  const newMeta = createAgentSession(`${sourceMeta.title} (fork)`, sourceMeta.channelId, sourceMeta.workspaceId, forkModelId, 'pi')
+  const destDir = sourceMeta.workspaceId && getAgentWorkspace(sourceMeta.workspaceId)
+    ? getAgentSessionWorkspacePath(getAgentWorkspace(sourceMeta.workspaceId)!.slug, newMeta.id)
+    : undefined
+
+  try {
+    const sdk = await import('@earendil-works/pi-coding-agent')
+    const sessionDir = join(getSdkConfigDir(), 'sessions')
+    const sourceManager = sdk.SessionManager.open(sourceMeta.piSessionFile, sessionDir, sourceDir)
+    const branchFile = sourceManager.createBranchedSession(entryId)
+    if (!branchFile || !existsSync(branchFile)) {
+      throw new Error('Pi 未能生成分叉 session artifact')
+    }
+    const forkedManager = sdk.SessionManager.forkFrom(branchFile, destDir ?? sourceDir ?? process.cwd(), sessionDir)
+    const piSessionFile = forkedManager.getSessionFile()
+    if (!piSessionFile || !existsSync(piSessionFile)) throw new Error('Pi 分叉 artifact 校验失败')
+
+    updateAgentSessionMeta(newMeta.id, {
+      sdkSessionId: forkedManager.getSessionId(),
+      piSessionFile,
+      piEntryBindings: { ...(sourceMeta.piEntryBindings ?? {}) },
+      forkSourceDir: sourceDir,
+    })
+    newMeta.sdkSessionId = forkedManager.getSessionId()
+    newMeta.piSessionFile = piSessionFile
+    newMeta.piEntryBindings = { ...(sourceMeta.piEntryBindings ?? {}) }
+
+    if (sourceDir && destDir) copyForkWorkspaceFiles(sourceDir, destDir)
+    await copyForkStoredSDKMessages({
+      sourceSessionId: sourceMeta.id,
+      destSessionId: newMeta.id,
+      upToMessageUuid: targetUuid,
+      sourceDir,
+      destDir,
+    })
+    return newMeta
+  } catch (error) {
+    // 尚未对外返回的新 session 可安全清理，避免留下会被侧栏打开的半成品。
+    try { deleteAgentSession(newMeta.id) } catch { /* 保留原始错误 */ }
+    throw error
+  }
+}
+
+/** 将当前 Pi 会话切换到指定 assistant turn 的新 branch artifact（持久化回退）。 */
+export async function rewindPiAgentSession(sessionId: string, assistantMessageUuid: string): Promise<void> {
+  const meta = getAgentSessionMeta(sessionId)
+  if (!meta || meta.agentRuntime !== 'pi') throw new Error('不是 Pi Agent 会话')
+  const entryId = meta.piEntryBindings?.[assistantMessageUuid]
+  if (!entryId) throw new Error('该 Pi 历史消息尚无 entry ID 映射，无法安全回退')
+  if (!meta.piSessionFile || !existsSync(meta.piSessionFile)) throw new Error('未找到 Pi session artifact，无法安全回退')
+  const cwd = meta.workspaceId && getAgentWorkspace(meta.workspaceId)
+    ? getAgentSessionWorkspacePath(getAgentWorkspace(meta.workspaceId)!.slug, meta.id)
+    : process.cwd()
+  const sdk = await import('@earendil-works/pi-coding-agent')
+  const manager = sdk.SessionManager.open(meta.piSessionFile, join(getSdkConfigDir(), 'sessions'), cwd)
+  const branchFile = manager.createBranchedSession(entryId)
+  if (!branchFile || !existsSync(branchFile)) throw new Error('Pi 未能生成回退 session artifact')
+  const rewindManager = sdk.SessionManager.open(branchFile, join(getSdkConfigDir(), 'sessions'), cwd)
+  const retainedBindings = Object.fromEntries(
+    Object.entries(meta.piEntryBindings ?? {}).filter(([, mappedEntryId]) => Boolean(rewindManager.getEntry(mappedEntryId))),
+  )
+  updateAgentSessionMeta(sessionId, {
+    sdkSessionId: rewindManager.getSessionId(),
+    piSessionFile: branchFile,
+    piEntryBindings: retainedBindings,
+  })
 }
 
 interface ForkStoredMessageRef {
@@ -1079,7 +1223,7 @@ function rewriteSourceToDest(content: string, sourceDir: string, destDir: string
  * 截断 Agent 会话的 SDK 消息到指定 UUID（inclusive）
  *
  * 保留 uuid 匹配消息及之前的所有消息，删除之后的消息。
- * 通过 writeFileSync 全量重写 JSONL 文件。
+ * 通过原子替换全量重写 JSONL 文件。
  *
  * @returns 截断后保留的消息列表
  */
@@ -1101,10 +1245,36 @@ export function truncateSDKMessages(id: string, upToUuidInclusive: string): SDKM
   const kept = messages.slice(0, cutIndex + 1)
 
   const content = kept.map((m) => JSON.stringify(m)).join('\n') + (kept.length > 0 ? '\n' : '')
-  writeFileSync(filePath, content, 'utf-8')
+  writeTextFileAtomic(filePath, content)
 
   console.log(`[Agent 会话] 消息已截断: sessionId=${id}, 保留 ${kept.length}/${messages.length} 条`)
   return kept
+}
+
+/**
+ * 删除指定 UUID 的持久化错误消息。
+ *
+ * 仅删除 assistant error，避免调用方误删普通回复；找不到时保持幂等。
+ */
+export function removeSDKErrorMessage(id: string, errorUuid: string): boolean {
+  const filePath = getAgentSessionMessagesPath(id)
+  if (!existsSync(filePath)) return false
+
+  const raw = readFileSync(filePath, 'utf-8')
+  const lines = raw.split('\n').filter((line) => line.trim())
+  const messages = parseJsonlStrict<unknown>(lines, `删除错误消息 (${id})`).map(normalizePersistedSDKMessage)
+  const targetIndex = messages.findIndex((message) =>
+    message.type === 'assistant'
+      && (message as { uuid?: string }).uuid === errorUuid
+      && Boolean((message as { error?: unknown }).error),
+  )
+  if (targetIndex < 0) return false
+
+  const kept = messages.filter((_, index) => index !== targetIndex)
+  const content = kept.map((message) => JSON.stringify(message)).join('\n') + (kept.length > 0 ? '\n' : '')
+  writeTextFileAtomic(filePath, content)
+  console.log(`[Agent 会话] 已删除重试前错误: sessionId=${id}, uuid=${errorUuid}`)
+  return true
 }
 
 /**

@@ -3,9 +3,11 @@ import {
   normalizeAnthropicBaseUrl,
   normalizeVersionedAnthropicBaseUrl,
   normalizeAnthropicBaseUrlForSdk,
+  normalizeOpenAIBaseUrlForSdk,
   normalizeBaseUrl,
   normalizeAnthropicProviderUrl,
   resolveOpenAIChatCompletionsUrl,
+  resolveOpenAIResponsesUrl,
   resolveOpenAIModelsUrl,
   resolveAnthropicMessagesUrl,
   resolveAnthropicModelsUrl,
@@ -80,6 +82,16 @@ describe('normalizeAnthropicBaseUrlForSdk', () => {
   })
 })
 
+describe('normalizeOpenAIBaseUrlForSdk', () => {
+  test('去除完整 /responses 端点，供 Pi runtime 重新拼接', () => {
+    expect(normalizeOpenAIBaseUrlForSdk('https://api.openai.com/v1/responses')).toBe('https://api.openai.com/v1')
+  })
+
+  test('去除完整 /chat/completions 端点', () => {
+    expect(normalizeOpenAIBaseUrlForSdk('https://api.openai.com/v1/chat/completions')).toBe('https://api.openai.com/v1')
+  })
+})
+
 describe('normalizeBaseUrl', () => {
   test('仅去除尾部斜杠', () => {
     expect(normalizeBaseUrl('https://api.openai.com/v1/')).toBe('https://api.openai.com/v1')
@@ -128,9 +140,12 @@ describe('normalizeAnthropicProviderUrl', () => {
     )
   })
 
-  test('qwen-anthropic 补全 /v1', () => {
+  test('qwen Anthropic 渠道补全 /v1', () => {
     expect(normalizeAnthropicProviderUrl('https://dashscope.aliyuncs.com/apps/anthropic', 'qwen-anthropic')).toBe(
       'https://dashscope.aliyuncs.com/apps/anthropic/v1',
+    )
+    expect(normalizeAnthropicProviderUrl('https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic', 'qwen-token-plan')).toBe(
+      'https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic/v1',
     )
   })
 
@@ -174,8 +189,8 @@ describe('resolveOpenAIChatCompletionsUrl', () => {
     )
   })
 
-  test('custom 不向用户填写的地址追加后缀', () => {
-    expect(resolveOpenAIChatCompletionsUrl('https://api.example.com/v1', 'custom')).toBe('https://api.example.com/v1')
+  test('custom 不向自定义 Chat 请求地址追加后缀', () => {
+    expect(resolveOpenAIChatCompletionsUrl('https://api.example.com/v2', 'custom')).toBe('https://api.example.com/v2')
   })
 
   test('内置 openai 协议根地址补全 /chat/completions', () => {
@@ -190,6 +205,12 @@ describe('resolveOpenAIChatCompletionsUrl', () => {
     )
   })
 
+  test('OpenCode Go OpenAI 协议根地址补全 chat completions 端点', () => {
+    expect(resolveOpenAIChatCompletionsUrl('https://opencode.ai/zen/go/v1', 'opencode-go-openai')).toBe(
+      'https://opencode.ai/zen/go/v1/chat/completions',
+    )
+  })
+
   test('保留查询参数', () => {
     expect(resolveOpenAIChatCompletionsUrl('https://api.example.com/v1/chat/completions?api-version=2024', 'custom')).toBe(
       'https://api.example.com/v1/chat/completions?api-version=2024',
@@ -197,9 +218,29 @@ describe('resolveOpenAIChatCompletionsUrl', () => {
   })
 })
 
+describe('resolveOpenAIResponsesUrl', () => {
+  test('协议根地址补全 /responses', () => {
+    expect(resolveOpenAIResponsesUrl('https://api.openai.com/v1', 'openai-responses')).toBe(
+      'https://api.openai.com/v1/responses',
+    )
+  })
+
+  test('完整 /responses 端点不重复追加', () => {
+    expect(resolveOpenAIResponsesUrl('https://api.openai.com/v1/responses/', 'openai-responses')).toBe(
+      'https://api.openai.com/v1/responses',
+    )
+  })
+})
+
 describe('resolveOpenAIModelsUrl', () => {
   test('完整 chat/completions 端点回到同级 /models', () => {
     expect(resolveOpenAIModelsUrl('https://api.example.com/v1/chat/completions')).toBe(
+      'https://api.example.com/v1/models',
+    )
+  })
+
+  test('完整 responses 端点回到同级 /models', () => {
+    expect(resolveOpenAIModelsUrl('https://api.example.com/v1/responses')).toBe(
       'https://api.example.com/v1/models',
     )
   })
@@ -255,9 +296,12 @@ describe('resolveAnthropicMessagesUrl', () => {
     )
   })
 
-  test('内置 anthropic 已是完整端点不重复追加', () => {
+  test('内置完整 messages 端点不重复追加', () => {
     expect(resolveAnthropicMessagesUrl('https://api.anthropic.com/v1/messages', 'anthropic')).toBe(
       'https://api.anthropic.com/v1/messages',
+    )
+    expect(resolveAnthropicMessagesUrl('https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic/v1/messages', 'qwen-token-plan')).toBe(
+      'https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic/v1/messages',
     )
   })
 })

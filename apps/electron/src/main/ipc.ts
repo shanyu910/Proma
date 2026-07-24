@@ -4,7 +4,7 @@
  * 负责注册主进程和渲染进程之间的通信处理器
  */
 
-import { ipcMain, nativeTheme, shell, dialog, BrowserWindow, app } from 'electron'
+import { ipcMain, nativeTheme, shell, dialog, BrowserWindow, app, clipboard, nativeImage } from 'electron'
 import { join, resolve, sep, dirname } from 'node:path'
 import { existsSync, realpathSync, rmSync, readFileSync, writeFileSync, mkdirSync, statSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
@@ -44,6 +44,8 @@ import type {
   RecentMessagesResult,
   AgentSessionMeta,
   AgentSendInput,
+  AgentRuntime,
+  AgentThinkingLevel,
   AgentWorkspace,
   AgentGenerateTitleInput,
   AgentSaveFilesInput,
@@ -129,6 +131,8 @@ import {
   fetchModels,
   getChannelPlanQuota,
 } from './lib/channel-manager'
+import { loginCodexOAuth, cancelCodexOAuthLogin } from './lib/codex-oauth-service'
+import { serializeCodexCredentials } from '@proma/shared'
 import {
   listConversations,
   createConversation,
@@ -167,6 +171,7 @@ import { getProxySettings, saveProxySettings } from './lib/proxy-settings-servic
 import { detectSystemProxy } from './lib/system-proxy-detector'
 import {
   listAutomations,
+  getAutomation,
   createAutomation,
   updateAutomation,
   deleteAutomation,
@@ -817,6 +822,10 @@ function cacheNull(key: string): null {
   return null
 }
 
+function isAgentRuntime(value: unknown): value is AgentRuntime {
+  return value === 'claude' || value === 'pi'
+}
+
 /**
  * 解析应用图标变体的文件路径
  */
@@ -1158,6 +1167,36 @@ export function registerIpcHandlers(): void {
     CHANNEL_IPC_CHANNELS.GET_PLAN_QUOTA,
     async (_, channelId: string): Promise<import('@proma/shared').ChannelPlanQuotaResult> => {
       return getChannelPlanQuota(channelId)
+    }
+  )
+
+  // 发起 ChatGPT (Codex) OAuth 登录。登录在主进程执行（Pi SDK 用 Node crypto +
+  // 本地 :1455 回调服务）；成功后返回序列化的凭据 JSON（明文），由渲染层作为
+  // apiKey 传给 create/update，channel-manager 加密后存储——与现有 apiKey 明文回传模式一致。
+  ipcMain.handle(
+    CHANNEL_IPC_CHANNELS.CODEX_OAUTH_LOGIN,
+    async (): Promise<import('@proma/shared').CodexOAuthLoginResult> => {
+      try {
+        const credentials = await loginCodexOAuth()
+        return {
+          success: true,
+          credentials: serializeCodexCredentials(credentials),
+          ...(credentials.accountId ? { accountId: credentials.accountId } : {}),
+        }
+      } catch (error) {
+        return {
+          success: false,
+          message: error instanceof Error ? error.message : String(error),
+        }
+      }
+    }
+  )
+
+  // 取消进行中的 ChatGPT OAuth 登录流程
+  ipcMain.handle(
+    CHANNEL_IPC_CHANNELS.CODEX_OAUTH_CANCEL,
+    async (): Promise<void> => {
+      cancelCodexOAuthLogin()
     }
   )
 
@@ -1624,6 +1663,27 @@ export function registerIpcHandlers(): void {
     }
   )
 
+  // 将图片 data URL 写入系统剪贴板
+  ipcMain.handle(
+    SCRATCH_PAD_IPC_CHANNELS.COPY_IMAGE,
+    async (_, dataUrl: string): Promise<{ success: boolean; message?: string }> => {
+      try {
+        if (!dataUrl || typeof dataUrl !== 'string') {
+          return { success: false, message: '无效的图片数据' }
+        }
+        const img = nativeImage.createFromDataURL(dataUrl)
+        if (img.isEmpty()) {
+          return { success: false, message: '该格式图片暂不支持复制' }
+        }
+        clipboard.writeImage(img)
+        return { success: true }
+      } catch (err) {
+        console.error('[ScratchPad] 复制图片到剪贴板失败:', err)
+        return { success: false, message: '复制失败' }
+      }
+    }
+  )
+
   // ===== 应用图标切换 =====
 
   ipcMain.handle(
@@ -1766,7 +1826,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(
     AGENT_IPC_CHANNELS.CREATE_SESSION,
     async (_, title?: string, channelId?: string, workspaceId?: string, modelId?: string): Promise<AgentSessionMeta> => {
-      const session = createAgentSession(title, channelId, workspaceId, modelId)
+      const session = createAgentSession(title, channelId, workspaceId, modelId, getSettings().agentRuntime ?? 'pi')
       feishuBridgeManager.ensureSessionMirror(session).catch((error) => {
         console.error('[飞书 Session 镜像] 新会话建群失败:', error)
       })
@@ -1794,6 +1854,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(
     AGENT_IPC_CHANNELS.UPDATE_SESSION_MODEL,
     async (_, id: string, channelId?: string, modelId?: string): Promise<AgentSessionMeta> => {
+      if (isAgentSessionActive(id)) {
+        throw new Error('Agent 正在运行，完成后再切换模型')
+      }
       return updateAgentSessionMeta(id, { channelId, modelId })
     }
   )
@@ -1843,6 +1906,17 @@ export function registerIpcHandlers(): void {
         updates.archived = false
       }
       return updateAgentSessionMeta(id, updates)
+    }
+  )
+
+  // 切换 Agent 会话星标状态
+  ipcMain.handle(
+    AGENT_IPC_CHANNELS.TOGGLE_STAR,
+    async (_, id: string): Promise<AgentSessionMeta> => {
+      const sessions = listAgentSessions()
+      const current = sessions.find((s) => s.id === id)
+      if (!current) throw new Error(`Agent session not found: ${id}`)
+      return updateAgentSessionMeta(id, { starred: !current.starred })
     }
   )
 
@@ -2335,6 +2409,68 @@ export function registerIpcHandlers(): void {
           throw err
         })
       }
+    }
+  )
+
+  // 切换指定会话的 Agent runtime（空闲后下一轮生效）
+  ipcMain.handle(
+    AGENT_IPC_CHANNELS.UPDATE_SESSION_CODEX_FAST_MODE,
+    async (_, sessionId: string, enabled: boolean): Promise<AgentSessionMeta> => {
+      if (typeof enabled !== 'boolean') {
+        throw new Error(`无效的 Codex Fast Mode 状态: ${String(enabled)}`)
+      }
+      if (!getAgentSessionMeta(sessionId)) {
+        throw new Error(`Agent 会话不存在: ${sessionId}`)
+      }
+      if (isAgentSessionActive(sessionId)) {
+        throw new Error('Agent 正在运行，完成后再切换快速模式')
+      }
+      return updateAgentSessionMeta(sessionId, { codexFastMode: enabled })
+    }
+  )
+
+  ipcMain.handle(
+    AGENT_IPC_CHANNELS.UPDATE_SESSION_OPENAI_REASONING,
+    async (_, sessionId: string, thinkingLevel: AgentThinkingLevel): Promise<AgentSessionMeta> => {
+      const validThinkingLevels: AgentThinkingLevel[] = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
+      if (!validThinkingLevels.includes(thinkingLevel)) {
+        throw new Error(`无效的 Codex 思考深度: ${String(thinkingLevel)}`)
+      }
+      if (!getAgentSessionMeta(sessionId)) {
+        throw new Error(`Agent 会话不存在: ${sessionId}`)
+      }
+      if (isAgentSessionActive(sessionId)) {
+        throw new Error('Agent 正在运行，完成后再切换思考深度')
+      }
+      return updateAgentSessionMeta(sessionId, { openAIThinkingLevel: thinkingLevel })
+    }
+  )
+
+  ipcMain.handle(
+    AGENT_IPC_CHANNELS.UPDATE_SESSION_AGENT_RUNTIME,
+    async (_, sessionId: string, runtime: AgentRuntime): Promise<AgentSessionMeta> => {
+      if (!isAgentRuntime(runtime)) {
+        throw new Error(`无效的 Agent runtime: ${String(runtime)}`)
+      }
+      const current = getAgentSessionMeta(sessionId)
+      if (!current) {
+        throw new Error(`Agent 会话不存在: ${sessionId}`)
+      }
+
+      if (isAgentSessionActive(sessionId)) {
+        throw new Error('Agent 正在运行，完成后再切换内核')
+      }
+
+      // 历史会话缺失 runtime 时按 Claude 处理，避免将 Claude SDK 会话 ID 交给 Pi 恢复。
+      const previousRuntime: AgentRuntime = isAgentRuntime(current.agentRuntime) ? current.agentRuntime : 'claude'
+      const updates: Partial<Pick<AgentSessionMeta, 'agentRuntime' | 'sdkSessionId'>> = {
+        agentRuntime: runtime,
+      }
+      if (previousRuntime !== runtime) {
+        updates.sdkSessionId = undefined
+      }
+
+      return updateAgentSessionMeta(sessionId, updates)
     }
   )
 
@@ -2867,6 +3003,34 @@ export function registerIpcHandlers(): void {
       }
 
       shell.showItemInFolder(safePath)
+    }
+  )
+
+  // 使用 macOS 系统 Terminal 在指定工作目录打开会话/工作区文件夹
+  ipcMain.handle(
+    AGENT_IPC_CHANNELS.OPEN_FOLDER_IN_TERMINAL,
+    async (_, folderPath: string): Promise<void> => {
+      if (process.platform !== 'darwin') {
+        throw new Error('当前仅支持在 macOS 终端中打开文件夹')
+      }
+      if (!isPathAllowed(folderPath)) {
+        throw new Error('访问路径超出 Agent 工作区范围')
+      }
+
+      const safePath = realpathSync(resolve(folderPath))
+      if (!statSync(safePath).isDirectory()) {
+        throw new Error('只能在终端中打开文件夹')
+      }
+
+      const { spawn } = await import('node:child_process')
+      await new Promise<void>((resolvePromise, reject) => {
+        const child = spawn('open', ['-a', 'Terminal', safePath], { detached: true, stdio: 'ignore' })
+        child.once('error', reject)
+        child.once('spawn', () => {
+          child.unref()
+          resolvePromise()
+        })
+      })
     }
   )
 
@@ -4255,8 +4419,8 @@ export function registerIpcHandlers(): void {
   const isNonEmptyString = (v: unknown): v is string => typeof v === 'string' && v.length > 0
   const isNonBlankString = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
   const isFiniteInt = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && Number.isInteger(v)
-  const validScheduleType = (v: unknown): v is 'interval' | 'daily' | 'weekly' | 'monthly' =>
-    v === 'interval' || v === 'daily' || v === 'weekly' || v === 'monthly'
+  const validScheduleType = (v: unknown): v is 'interval' | 'daily' | 'weekly' | 'monthly' | 'once' =>
+    v === 'interval' || v === 'daily' || v === 'weekly' || v === 'monthly' || v === 'once'
   const validPermissionMode = (v: unknown): v is 'bypassPermissions' =>
     v === 'bypassPermissions'
   const validAutomationNotificationTrigger = (v: unknown): v is 'always' | 'success' | 'error' =>
@@ -4297,6 +4461,15 @@ export function registerIpcHandlers(): void {
     if (i.dayOfMonth !== undefined && (!isFiniteInt(i.dayOfMonth) || i.dayOfMonth < 1 || i.dayOfMonth > 31)) {
       throw new Error(`非法的 dayOfMonth: ${String(i.dayOfMonth)}`)
     }
+    if (i.scheduledAt !== undefined && (typeof i.scheduledAt !== 'number' || !Number.isFinite(i.scheduledAt) || i.scheduledAt <= 0)) {
+      throw new Error(`非法的 scheduledAt: ${String(i.scheduledAt)}`)
+    }
+    if (i.maxRuns !== undefined && (!isFiniteInt(i.maxRuns) || i.maxRuns < 1)) {
+      throw new Error(`非法的 maxRuns: ${String(i.maxRuns)}`)
+    }
+    if (i.agentRuntime !== undefined && !isAgentRuntime(i.agentRuntime)) {
+      throw new Error(`非法的 agentRuntime: ${String(i.agentRuntime)}`)
+    }
     if (i.permissionMode !== undefined && !validPermissionMode(i.permissionMode)) {
       throw new Error(`非法的 permissionMode: ${String(i.permissionMode)}`)
     }
@@ -4304,6 +4477,50 @@ export function registerIpcHandlers(): void {
       throw new Error(`非法的 sessionMode: ${String(i.sessionMode)}`)
     }
     validateAutomationNotificationTargets(i.notificationTargets)
+  }
+
+  const validateAutomationRuntimePolicy = (
+    input: Partial<CreateAutomationInput | UpdateAutomationInput>,
+    existing?: Automation,
+  ): void => {
+    // 更新历史任务时，缺失的持久化 runtime 仍按 Claude 解释；仅新建任务使用 Pi 默认值。
+    const finalRuntime: AgentRuntime = input.agentRuntime ?? existing?.agentRuntime ?? (existing ? 'claude' : 'pi')
+    const finalChannelId = input.channelId !== undefined ? input.channelId : existing?.channelId
+    if (finalRuntime === 'claude' && finalChannelId) {
+      const agentChannelIds = getSettings().agentChannelIds ?? []
+      if (!agentChannelIds.includes(finalChannelId)) {
+        throw new Error('Claude Agent 内核只能使用已启用的 Agent 兼容渠道')
+      }
+    }
+  }
+
+  const validateAutomationScheduleComplete = (
+    input: Partial<CreateAutomationInput | UpdateAutomationInput>,
+    existing?: Automation,
+  ): void => {
+    const scheduleType = input.scheduleType ?? existing?.scheduleType
+    if (scheduleType === 'interval') {
+      const intervalMinutes = input.intervalMinutes ?? existing?.intervalMinutes
+      if (!isFiniteInt(intervalMinutes) || intervalMinutes < 1) throw new Error('scheduleType=interval 时 intervalMinutes 必填')
+    }
+    if (scheduleType === 'daily' || scheduleType === 'weekly' || scheduleType === 'monthly') {
+      const timeOfDay = input.timeOfDay ?? existing?.timeOfDay
+      if (!validTimeOfDay(timeOfDay)) throw new Error('scheduleType=daily/weekly/monthly 时 timeOfDay 必填')
+    }
+    if (scheduleType === 'weekly') {
+      const dayOfWeek = input.dayOfWeek ?? existing?.dayOfWeek
+      if (!isFiniteInt(dayOfWeek)) throw new Error('scheduleType=weekly 时 dayOfWeek 必填')
+    }
+    if (scheduleType === 'monthly') {
+      const dayOfMonth = input.dayOfMonth ?? existing?.dayOfMonth
+      if (!isFiniteInt(dayOfMonth)) throw new Error('scheduleType=monthly 时 dayOfMonth 必填')
+    }
+    if (scheduleType === 'once') {
+      const scheduledAt = input.scheduledAt ?? existing?.scheduledAt
+      if (typeof scheduledAt !== 'number' || !Number.isFinite(scheduledAt) || scheduledAt <= 0) {
+        throw new Error('scheduleType=once 时 scheduledAt 必填')
+      }
+    }
   }
 
   ipcMain.handle(
@@ -4319,10 +4536,8 @@ export function registerIpcHandlers(): void {
       if (!isNonEmptyString(input.prompt)) throw new Error('prompt 必填')
       // channelId / workspaceId 允许为空（草稿态），但此时任务不能被启用
       validateAutomationFields(input)
-      if (input.scheduleType === 'interval' && !isFiniteInt(input.intervalMinutes)) throw new Error('scheduleType=interval 时 intervalMinutes 必填')
-      if ((input.scheduleType === 'daily' || input.scheduleType === 'weekly' || input.scheduleType === 'monthly') && !validTimeOfDay(input.timeOfDay)) throw new Error('scheduleType=daily/weekly/monthly 时 timeOfDay 必填')
-      if (input.scheduleType === 'weekly' && !isFiniteInt(input.dayOfWeek)) throw new Error('scheduleType=weekly 时 dayOfWeek 必填')
-      if (input.scheduleType === 'monthly' && input.dayOfMonth === undefined) throw new Error('scheduleType=monthly 时 dayOfMonth 必填')
+      validateAutomationRuntimePolicy(input)
+      validateAutomationScheduleComplete(input)
       const a = createAutomation(input)
       broadcastAutomationsChanged()
       return a
@@ -4336,7 +4551,11 @@ export function registerIpcHandlers(): void {
       if (!isNonEmptyString(input.id)) throw new Error('id 必填')
       if (input.name !== undefined && !isNonBlankString(input.name)) throw new Error('name 不能为空')
       if (input.prompt !== undefined && !isNonBlankString(input.prompt)) throw new Error('prompt 不能为空')
+      const existing = getAutomation(input.id)
+      if (!existing) return undefined
       validateAutomationFields(input)
+      validateAutomationRuntimePolicy(input, existing)
+      validateAutomationScheduleComplete(input, existing)
       const a = updateAutomation(input)
       broadcastAutomationsChanged()
       return a

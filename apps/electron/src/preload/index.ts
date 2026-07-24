@@ -19,6 +19,7 @@ import type {
   FetchModelsInput,
   FetchModelsResult,
   ChannelPlanQuotaResult,
+  CodexOAuthLoginResult,
   ConversationMeta,
   ChatMessage,
   ChatSendInput,
@@ -36,6 +37,8 @@ import type {
   AgentSessionMeta,
   SDKMessage,
   AgentSendInput,
+  AgentRuntime,
+  AgentThinkingLevel,
   AgentStreamEvent,
   AgentStreamCompletePayload,
   AgentWorkspace,
@@ -220,6 +223,12 @@ export interface ElectronAPI {
   /** 查询渠道订阅 Plan 额度 */
   getChannelPlanQuota: (channelId: string) => Promise<ChannelPlanQuotaResult>
 
+  /** 发起 ChatGPT (Codex) OAuth 登录，返回序列化凭据（作为 apiKey 存储） */
+  codexOAuthLogin: () => Promise<CodexOAuthLoginResult>
+
+  /** 取消进行中的 ChatGPT (Codex) OAuth 登录 */
+  codexOAuthCancel: () => Promise<void>
+
   // ===== 对话管理相关 =====
 
   /** 获取对话列表 */
@@ -352,6 +361,9 @@ export interface ElectronAPI {
   /** 打开原生保存对话框，返回用户选择的路径 */
   chooseExportPath: (defaultName: string) => Promise<string | null>
 
+  /** 将图片 data URL 写入系统剪贴板 */
+  copyImageToClipboard: (dataUrl: string) => Promise<{ success: boolean; message?: string }>
+
   // ===== 应用图标切换 =====
 
   /** 设置应用图标变体（传入 variant ID，如 'blue'、'cyberpunk'，'default' 恢复默认） */
@@ -426,6 +438,15 @@ export interface ElectronAPI {
   /** 更新 Agent 会话标题 */
   updateAgentSessionTitle: (id: string, title: string) => Promise<AgentSessionMeta>
 
+  /** 切换 Agent 会话 runtime */
+  updateSessionAgentRuntime: (sessionId: string, runtime: AgentRuntime) => Promise<AgentSessionMeta>
+
+  /** 切换当前会话的 ChatGPT Codex Fast Mode */
+  updateSessionCodexFastMode: (sessionId: string, enabled: boolean) => Promise<AgentSessionMeta>
+
+  /** 更新当前会话的 Codex 思考深度 */
+  updateSessionOpenAIThinkingLevel: (sessionId: string, thinkingLevel: AgentThinkingLevel) => Promise<AgentSessionMeta>
+
   /** 更新 Agent 会话模型选择 */
   updateAgentSessionModel: (id: string, channelId?: string, modelId?: string) => Promise<AgentSessionMeta>
 
@@ -437,6 +458,9 @@ export interface ElectronAPI {
 
   /** 切换 Agent 会话置顶状态 */
   togglePinAgentSession: (id: string) => Promise<AgentSessionMeta>
+
+  /** 切换 Agent 会话星标状态 */
+  toggleStarAgentSession: (id: string) => Promise<AgentSessionMeta>
 
   /** 清除 Agent 会话完成状态（兼容清除旧版 manualWorking） */
   clearAgentCompletionState: (id: string) => Promise<AgentSessionMeta>
@@ -718,6 +742,9 @@ export interface ElectronAPI {
 
   /** 在系统文件管理器中显示文件 */
   showInFolder: (filePath: string) => Promise<void>
+
+  /** 使用系统终端打开文件夹 */
+  openFolderInTerminal: (folderPath: string) => Promise<void>
 
   /** 在系统文件管理器中显示文件（无工作区限制，支持候选基础目录） */
   showItemInFolder: (filePath: string, candidateBasePaths?: string[]) => Promise<boolean>
@@ -1171,6 +1198,14 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke(CHANNEL_IPC_CHANNELS.GET_PLAN_QUOTA, channelId)
   },
 
+  codexOAuthLogin: () => {
+    return ipcRenderer.invoke(CHANNEL_IPC_CHANNELS.CODEX_OAUTH_LOGIN)
+  },
+
+  codexOAuthCancel: () => {
+    return ipcRenderer.invoke(CHANNEL_IPC_CHANNELS.CODEX_OAUTH_CANCEL)
+  },
+
   // 对话管理
   listConversations: () => {
     return ipcRenderer.invoke(CHAT_IPC_CHANNELS.LIST_CONVERSATIONS)
@@ -1343,6 +1378,10 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke(SCRATCH_PAD_IPC_CHANNELS.CHOOSE_EXPORT_PATH, defaultName)
   },
 
+  copyImageToClipboard: (dataUrl: string) => {
+    return ipcRenderer.invoke(SCRATCH_PAD_IPC_CHANNELS.COPY_IMAGE, dataUrl)
+  },
+
   // 应用图标切换
   setAppIcon: (variantId: string) => {
     return ipcRenderer.invoke(APP_ICON_IPC_CHANNELS.SET, variantId)
@@ -1438,6 +1477,18 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke(AGENT_IPC_CHANNELS.UPDATE_TITLE, id, title)
   },
 
+  updateSessionAgentRuntime: (sessionId: string, runtime: AgentRuntime) => {
+    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.UPDATE_SESSION_AGENT_RUNTIME, sessionId, runtime)
+  },
+
+  updateSessionCodexFastMode: (sessionId: string, enabled: boolean) => {
+    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.UPDATE_SESSION_CODEX_FAST_MODE, sessionId, enabled)
+  },
+
+  updateSessionOpenAIThinkingLevel: (sessionId: string, thinkingLevel: AgentThinkingLevel) => {
+    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.UPDATE_SESSION_OPENAI_REASONING, sessionId, thinkingLevel)
+  },
+
   updateAgentSessionModel: (id: string, channelId?: string, modelId?: string) => {
     return ipcRenderer.invoke(AGENT_IPC_CHANNELS.UPDATE_SESSION_MODEL, id, channelId, modelId)
   },
@@ -1452,6 +1503,10 @@ const electronAPI: ElectronAPI = {
 
   togglePinAgentSession: (id: string) => {
     return ipcRenderer.invoke(AGENT_IPC_CHANNELS.TOGGLE_PIN, id)
+  },
+
+  toggleStarAgentSession: (id: string) => {
+    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.TOGGLE_STAR, id)
   },
 
   clearAgentCompletionState: (id: string) => {
@@ -1857,6 +1912,10 @@ const electronAPI: ElectronAPI = {
 
   showInFolder: (filePath: string) => {
     return ipcRenderer.invoke(AGENT_IPC_CHANNELS.SHOW_IN_FOLDER, filePath)
+  },
+
+  openFolderInTerminal: (folderPath: string) => {
+    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.OPEN_FOLDER_IN_TERMINAL, folderPath)
   },
 
   /** 在系统文件管理器中显示文件（无工作区限制，支持候选基础目录） */

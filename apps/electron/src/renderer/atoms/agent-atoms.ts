@@ -57,6 +57,12 @@ export function finalizeStreamingActivities(
   }
 }
 
+export interface ContextCompactionState {
+  status: 'running' | 'success' | 'noop' | 'failed'
+  summary?: string
+  message?: string
+}
+
 /** Agent 会话的流式状态 */
 export interface AgentStreamState {
   running: boolean
@@ -80,12 +86,14 @@ export interface AgentStreamState {
   costUsd?: number
   /** 模型上下文窗口大小 */
   contextWindow?: number
+  /** 当前上下文 token 是 Pi 手动压缩后的预估值 */
+  contextUsageIsEstimated?: boolean
   /** 当前 thinking block 的 token 估算值（SDK 实时估算，非计费值） */
   thinkingEstimatedTokens?: number
-  /** usage 数据最后更新时间戳（毫秒），用于 UI 提示数据时效 */
-  usageUpdatedAt?: number
   /** 是否正在压缩上下文 */
   isCompacting?: boolean
+  /** 当前或最近一次压缩状态，保留到实时消息清理完成后供底部进度区展示。 */
+  contextCompaction?: ContextCompactionState
   /**
    * 压缩流程是否进行中（含收尾窗口）。
    * 从用户点击压缩 / SDK compacting 事件开始 → 到整个 stream 结束（state 被删除）前一直为 true。
@@ -214,6 +222,8 @@ export const agentChannelIdAtom = atom<string | null>(null)
 export const agentModelIdAtom = atom<string | null>(null)
 /** Agent 启用的渠道 ID 列表（多选，设置页 Switch 开关控制） */
 export const agentChannelIdsAtom = atom<string[]>([])
+/** 新 Agent 会话默认 runtime */
+export const agentRuntimeAtom = atom<'claude' | 'pi'>('pi')
 
 /** Per-session 渠道 ID Map — sessionId → channelId */
 export const agentSessionChannelMapAtom = atom<Map<string, string>>(new Map())
@@ -221,12 +231,6 @@ export const agentSessionChannelMapAtom = atom<Map<string, string>>(new Map())
 export const agentSessionModelMapAtom = atom<Map<string, string>>(new Map())
 export const currentAgentSessionIdAtom = atom<string | null>(null)
 export const agentStreamingStatesAtom = atom<Map<string, AgentStreamState>>(new Map())
-
-/** Agent 流式结束后是否保持过程组展开，默认收起以降低结果阅读干扰 */
-export const agentProcessGroupsKeepExpandedAtom = atomWithStorage<boolean>(
-  'proma-agent-process-groups-keep-expanded',
-  false,
-)
 
 /**
  * 单个 session 的 streaming state 派生 atomFamily — 按 sessionId 切片订阅。
@@ -417,8 +421,8 @@ export const sessionExistsAtom = atomFamily((sessionId: string) =>
   }),
 )
 
-/** Agent 思考模式 */
-export const agentThinkingAtom = atom<ThinkingConfig | undefined>(undefined)
+/** Agent 思考模式：未加载持久化设置前也默认开启，避免输入栏按钮短暂显示为关闭。 */
+export const agentThinkingAtom = atom<ThinkingConfig | undefined>({ type: 'adaptive' })
 
 /** Agent 推理深度 */
 export const agentEffortAtom = atom<AgentEffort | undefined>(undefined)
@@ -755,7 +759,10 @@ export function applyAgentEvent(
       // - contextWindow：取流式与 result 的较大值（result 未必更权威——多 entry 时
       //   子 Agent 的小窗口可能拉低值，Fix 1/2 已从源头取 max，此处作为安全网）。
       // - costUsd：始终覆盖（本就该是整轮累计成本）
-      const needResultFallback = !prev.inputTokens || prev.inputTokens <= 0
+      const needResultFallback = !prev.inputTokens || prev.inputTokens <= 0 || prev.contextUsageIsEstimated === true
+      const shouldUseResultUsage = needResultFallback
+        && event.usage?.inputTokens != null
+        && (event.usage.inputTokens > 0 || prev.contextUsageIsEstimated !== true)
       return {
         ...prev,
         ...(event.usage ? {
@@ -764,13 +771,14 @@ export function applyAgentEvent(
             contextWindow: prev.contextWindow != null
               ? Math.max(prev.contextWindow, event.usage.contextWindow)
               : event.usage.contextWindow,
-            usageUpdatedAt: Date.now(),
           }),
-          ...(needResultFallback && event.usage.inputTokens != null && { inputTokens: event.usage.inputTokens }),
-          ...(needResultFallback && event.usage.outputTokens != null && { outputTokens: event.usage.outputTokens }),
-          ...(needResultFallback && event.usage.cacheReadTokens != null && { cacheReadTokens: event.usage.cacheReadTokens }),
-          ...(needResultFallback && event.usage.cacheCreationTokens != null && { cacheCreationTokens: event.usage.cacheCreationTokens }),
-          ...(needResultFallback && { usageUpdatedAt: Date.now() }),
+          ...(shouldUseResultUsage && {
+            inputTokens: event.usage.inputTokens,
+            outputTokens: event.usage.outputTokens,
+            cacheReadTokens: event.usage.cacheReadTokens,
+            cacheCreationTokens: event.usage.cacheCreationTokens,
+            contextUsageIsEstimated: false,
+          }),
         } : {}),
         retrying: undefined,
         ...finalizeStreamingActivities(prev.toolActivities),
@@ -794,7 +802,10 @@ export function applyAgentEvent(
     case 'usage_update':
       return {
         ...prev,
-        ...(event.usage.inputTokens != null && { inputTokens: event.usage.inputTokens }),
+        ...(event.usage.inputTokens != null && {
+          inputTokens: event.usage.inputTokens,
+          contextUsageIsEstimated: false,
+        }),
         ...(event.usage.outputTokens != null && { outputTokens: event.usage.outputTokens }),
         ...(event.usage.cacheReadTokens != null && { cacheReadTokens: event.usage.cacheReadTokens }),
         ...(event.usage.cacheCreationTokens != null && { cacheCreationTokens: event.usage.cacheCreationTokens }),
@@ -806,14 +817,36 @@ export function applyAgentEvent(
         ...(event.usage.contextWindow && {
           contextWindow: Math.max(prev.contextWindow ?? 0, event.usage.contextWindow),
         }),
-        usageUpdatedAt: Date.now(),
       }
 
     case 'compacting':
-      return { ...prev, isCompacting: true, compactInFlight: true }
+      return {
+        ...prev,
+        isCompacting: true,
+        compactInFlight: true,
+        contextCompaction: { status: 'running' },
+      }
 
-    case 'compact_complete':
-      return { ...prev, isCompacting: false }
+    case 'compact_complete': {
+      const contextCompaction = {
+        status: event.status,
+        summary: event.summary,
+        message: event.message,
+      }
+      if (event.estimatedTokensAfter == null) {
+        return { ...prev, isCompacting: false, contextCompaction }
+      }
+      return {
+        ...prev,
+        isCompacting: false,
+        contextCompaction,
+        inputTokens: event.estimatedTokensAfter,
+        outputTokens: undefined,
+        cacheReadTokens: undefined,
+        cacheCreationTokens: undefined,
+        contextUsageIsEstimated: true,
+      }
+    }
 
     case 'model_resolved':
       // 不用 SDK 返回的实际模型名覆盖，保持用户选择的 modelId
@@ -899,8 +932,8 @@ export interface AgentContextStatus {
   cacheCreationTokens?: number
   costUsd?: number
   contextWindow?: number
-  /** usage 数据最后更新时间戳（毫秒） */
-  usageUpdatedAt?: number
+  /** 当前上下文 token 是否为 Pi 手动压缩后的预估值 */
+  contextUsageIsEstimated?: boolean
 }
 
 /** 当前会话的上下文使用量派生 atom */
@@ -916,7 +949,7 @@ export const agentContextStatusAtom = atom<AgentContextStatus>((get) => {
     cacheCreationTokens: state?.cacheCreationTokens,
     costUsd: state?.costUsd,
     contextWindow: state?.contextWindow,
-    usageUpdatedAt: state?.usageUpdatedAt,
+    contextUsageIsEstimated: state?.contextUsageIsEstimated,
   }
 })
 

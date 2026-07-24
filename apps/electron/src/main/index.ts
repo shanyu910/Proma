@@ -87,6 +87,7 @@ import { initializeRuntime } from './lib/runtime-init'
 import { seedDefaultSkills } from './lib/config-paths'
 import { upgradeDefaultSkillsInWorkspaces } from './lib/agent-workspace-manager'
 import { stopAllAgents, killOrphanedClaudeSubprocesses } from './lib/agent-service'
+import { disposePiMcpConnections } from './lib/adapters/pi-mcp-tools'
 import { markRunningDelegationsAsInterrupted } from './lib/agent-session-manager'
 import { stopAllGenerations } from './lib/chat-service'
 import { initAutoUpdater, cleanupUpdater } from './lib/updater/auto-updater'
@@ -313,6 +314,14 @@ function saveMainWindowState(): void {
   })
 }
 
+function isDevServerNavigation(url: string): boolean {
+  try {
+    return new URL(url).origin === 'http://127.0.0.1:5173'
+  } catch {
+    return false
+  }
+}
+
 function createWindow(): void {
   const iconPath = getIconPath()
   const iconExists = existsSync(iconPath)
@@ -358,7 +367,7 @@ function createWindow(): void {
   // Load the renderer
   const isDev = !app.isPackaged
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173')
+    mainWindow.loadURL('http://127.0.0.1:5173')
     mainWindow.webContents.openDevTools()
   } else {
     mainWindow.loadFile(join(__dirname, 'renderer', 'index.html'))
@@ -390,7 +399,7 @@ function createWindow(): void {
   // 拦截页面内导航，外部链接用系统浏览器打开，防止 Electron 窗口被覆盖
   mainWindow.webContents.on('will-navigate', (event, url) => {
     // 允许开发模式下的 Vite HMR 热重载
-    if (isDev && url.startsWith('http://localhost:')) return
+    if (isDev && isDevServerNavigation(url)) return
     event.preventDefault()
     if (url.startsWith('http://') || url.startsWith('https://')) {
       shell.openExternal(url)
@@ -672,6 +681,8 @@ app.on('before-quit', () => {
   // 销毁快速任务窗口
   destroyQuickTaskWindow()
   destroyVoiceDictationWindow()
+  // 关闭 Pi MCP 桥接连接（释放 stdio 子进程）
+  disposePiMcpConnections().catch(() => {})
   // Clean up system tray before quitting
   destroyTray()
 })

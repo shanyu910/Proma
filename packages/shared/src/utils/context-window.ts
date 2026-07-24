@@ -16,6 +16,31 @@ export const DEFAULT_CONTEXT_WINDOW = 200_000
 /** 1M 上下文窗口 */
 export const ONE_MILLION_CONTEXT_WINDOW = 1_000_000
 
+/** ChatGPT Codex 已验证的 GPT-5.x 上下文窗口；第三方同名模型沿用此展示基线。 */
+export const CODEX_GPT_54_55_CONTEXT_WINDOW = 272_000
+export const CODEX_GPT_54_MINI_CONTEXT_WINDOW = 400_000
+export const CODEX_GPT_56_CONTEXT_WINDOW = 372_000
+
+/**
+ * 为与 ChatGPT Codex 同名的 GPT-5.x 模型返回统一上下文窗口。
+ *
+ * 仅覆盖 Codex 已明确标记的模型；Pro/Nano 等未出现在 Codex 目录的变体继续交由
+ * provider catalog 决定，避免把不同 SKU 误写成同一窗口。
+ */
+export function inferCodexAlignedGPT5ContextWindow(modelId: string | undefined): number | undefined {
+  const model = modelId?.toLowerCase().replace(/\[1m\]$/i, '')
+  switch (model) {
+    case 'gpt-5.4-mini': return CODEX_GPT_54_MINI_CONTEXT_WINDOW
+    case 'gpt-5.4':
+    case 'gpt-5.5': return CODEX_GPT_54_55_CONTEXT_WINDOW
+    case 'gpt-5.6':
+    case 'gpt-5.6-sol':
+    case 'gpt-5.6-terra':
+    case 'gpt-5.6-luna': return CODEX_GPT_56_CONTEXT_WINDOW
+    default: return undefined
+  }
+}
+
 /** 已确认需要显式选择 Claude Agent SDK `[1m]` 变体的模型。 */
 const AGENT_SDK_1M_CONTEXT_RULES = {
   // Claude 系列
@@ -35,8 +60,11 @@ const AGENT_SDK_1M_CONTEXT_RULES = {
   mimo: ['mimo-v2.5'],
   // MiniMax
   minimax: ['minimax-m3'],
+  // Kimi
+  kimi: ['k3'],
   // 通义千问
   qwen: [
+    'qwen3.8',
     'qwen3.7',
     'qwen3.6-plus',
     'qwen3.6-flash',
@@ -57,11 +85,22 @@ const AGENT_SDK_1M_CONTEXT_PROVIDER_RULES: Partial<Record<ProviderType, readonly
   'ark-coding-plan': [
     ...AGENT_SDK_1M_CONTEXT_RULES.deepseek,
     ...AGENT_SDK_1M_CONTEXT_RULES.glm,
+    ...AGENT_SDK_1M_CONTEXT_RULES.kimi,
     ...AGENT_SDK_1M_CONTEXT_RULES.minimax,
   ],
+  'kimi-api': AGENT_SDK_1M_CONTEXT_RULES.kimi,
+  'kimi-coding': AGENT_SDK_1M_CONTEXT_RULES.kimi,
 }
 
 const AGENT_SDK_1M_CONTEXT_DISPLAY_RULES = Object.values(AGENT_SDK_1M_CONTEXT_RULES).flat()
+const EXACT_CONTEXT_RULES = new Set(['k3', 'kimi-k3'])
+
+function matchesContextRule(model: string, pattern: string): boolean {
+  if (EXACT_CONTEXT_RULES.has(pattern)) {
+    return model === pattern || model.startsWith(`${pattern}[`)
+  }
+  return model.includes(pattern)
+}
 
 /**
  * 上下文窗口配置表。仅影响显示推断的模型加在 rules；已实测 Agent SDK 1M
@@ -79,6 +118,8 @@ const CONTEXT_WINDOW_CONFIG = {
   /** 1M 上下文模型匹配规则 */
   rules: [
     ...AGENT_SDK_1M_CONTEXT_DISPLAY_RULES,
+    // OpenAI 协议渠道（如 OpenCode Go）使用该真实模型 ID，不应追加 Claude SDK `[1m]` 后缀。
+    'kimi-k3',
     // 已废弃的 MiMo V2 Pro 仅保留历史显示推断，不主动启用 SDK 1M 变体
     'mimo-v2-pro',
   ] as const,
@@ -91,7 +132,7 @@ export function supports1MContext(modelId: string): boolean {
   if (!modelId) return false
   const m = modelId.toLowerCase()
   if (CONTEXT_WINDOW_CONFIG.exclude.some((p) => m.includes(p))) return false
-  return CONTEXT_WINDOW_CONFIG.rules.some((p) => m.includes(p))
+  return CONTEXT_WINDOW_CONFIG.rules.some((p) => matchesContextRule(m, p))
 }
 
 /**
@@ -102,6 +143,8 @@ export function supports1MContext(modelId: string): boolean {
  */
 export function inferContextWindow(model?: string): number | undefined {
   if (!model) return undefined
+  const codexAlignedWindow = inferCodexAlignedGPT5ContextWindow(model)
+  if (codexAlignedWindow !== undefined) return codexAlignedWindow
   if (supports1MContext(model)) return ONE_MILLION_CONTEXT_WINDOW
   return DEFAULT_CONTEXT_WINDOW
 }
@@ -115,6 +158,8 @@ export function inferContextWindow(model?: string): number | undefined {
  */
 export function inferAgentSdkContextWindow(modelId: string | undefined, provider: ProviderType): number | undefined {
   if (!modelId) return undefined
+  const codexAlignedWindow = inferCodexAlignedGPT5ContextWindow(modelId)
+  if (codexAlignedWindow !== undefined) return codexAlignedWindow
   return supports1MContext(modelId)
     || resolveAgentSdkModelId(modelId, provider) !== modelId
     || /\[1m\]$/i.test(modelId)
@@ -134,6 +179,6 @@ export function resolveAgentSdkModelId(modelId: string, provider: ProviderType):
   }
   const model = modelId.toLowerCase()
   const rules = AGENT_SDK_1M_CONTEXT_PROVIDER_RULES[provider]
-  if (!rules?.some((pattern) => model.includes(pattern))) return modelId
+  if (!rules?.some((pattern) => matchesContextRule(model, pattern))) return modelId
   return `${modelId}[1m]`
 }

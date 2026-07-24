@@ -20,7 +20,7 @@ import { join, dirname } from 'node:path'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { app } from 'electron'
-import type { AgentSendInput, AgentMessage, AgentGenerateTitleInput, AgentProviderAdapter, AgentSessionMeta, TypedError, RetryAttempt, SDKMessage, SDKAssistantMessage, AgentStreamPayload, RewindSessionResult, ProviderType } from '@proma/shared'
+import type { AgentRuntime, AgentSendInput, AgentMessage, AgentGenerateTitleInput, AgentProviderAdapter, AgentSessionMeta, CodexOAuthCredentials, TypedError, RetryAttempt, SDKMessage, SDKAssistantMessage, AgentStreamPayload, RewindSessionResult, ProviderType } from '@proma/shared'
 import {
   PROMA_DEFAULT_PERMISSION_MODE,
   PROMA_PERMISSION_MODE_CONFIG,
@@ -30,21 +30,24 @@ import {
   isPersistableSDKSystemMessage,
   normalizeMcpTransportType,
   inferAgentSdkContextWindow,
-  resolveAgentSdkModelId,
+  isOpenAIReasoningSupportedModel,
+  isAgentCompatibleProvider,
 } from '@proma/shared'
 import type { PromaPermissionMode, AskUserRequest, ExitPlanModeRequest, SDKSystemMessage } from '@proma/shared'
 import type { ClaudeAgentQueryOptions } from './adapters/claude-agent-adapter'
 import { isPromptTooLongError, isThinkingSignatureError, friendlyErrorMessage, mapSDKErrorToTypedError, extractErrorDetails, shouldKeepChannelOpen } from './adapters/claude-agent-adapter'
+import type { PiAgentQueryOptions } from './adapters/pi-agent-adapter'
+import { getPiAssistantErrorDetails, hasPiAssistantTextContent, stripPiAssistantError } from './adapters/pi-message-adapter'
 import { isTransientNetworkError, isMalformedResponseError, isSessionNotFoundError } from './error-patterns'
 import { AgentEventBus } from './agent-event-bus'
-import { decryptApiKey, getChannelById, listChannels } from './channel-manager'
+import { decryptApiKey, getChannelById, listChannels, persistCodexOAuthCredentials, resolveChannelRuntimeApiKey, resolveCodexOAuthCredentials } from './channel-manager'
 import { getAdapter, fetchTitle, normalizeAnthropicBaseUrlForSdk, getPromaUserAgent } from '@proma/core'
 import pkg from '../../../package.json' with { type: 'json' }
 import { getFetchFn } from './proxy-fetch'
 import { getEffectiveProxyUrl } from './proxy-settings-service'
-import { appendSDKMessages, updateAgentSessionMeta, getAgentSessionMeta, getAgentSessionMessages, truncateSDKMessages, resolveUserUuidFromSDK, rewindFilesFromSnapshot } from './agent-session-manager'
+import { appendSDKMessages, updateAgentSessionMeta, getAgentSessionMeta, getAgentSessionMessages, truncateSDKMessages, removeSDKErrorMessage, resolveUserUuidFromSDK, rewindFilesFromSnapshot, rewindPiAgentSession } from './agent-session-manager'
 import { getAgentWorkspace, getWorkspaceMcpConfig, ensurePluginManifest, getWorkspaceAutoMemoryDir, getWorkspaceAttachedDirectories, getWorkspaceAttachedFiles } from './agent-workspace-manager'
-import { getAgentWorkspacePath, getAgentSessionWorkspacePath, getSdkConfigDir, getWorkspaceFilesDir, getBundledCliPath } from './config-paths'
+import { getAgentWorkspacePath, getAgentSessionWorkspacePath, getSdkConfigDir, getWorkspaceFilesDir, getWorkspaceSkillsDir } from './config-paths'
 import { getRuntimeStatus } from './runtime-init'
 import { getSettings } from './settings-service'
 import { buildSystemPrompt, buildDynamicContext } from './agent-prompt-builder'
@@ -54,13 +57,21 @@ import type { PermissionResult, CanUseToolOptions } from './agent-permission-ser
 import { askUserService } from './agent-ask-user-service'
 import { exitPlanService, type ExitPlanPermissionResult } from './agent-exit-plan-service'
 import { removePromaAutoCompactSettings } from './agent-auto-compact-settings'
-import { applyAgentModelRoutingToEnv, resolveAgentModelRouting } from './agent-model-routing'
+import { applyClaudeSdkAttributionSettings, isGitAttributionEnabled } from './agent-git-attribution'
 import { validateToolInput } from './agent-tool-input-validator'
 import { estimateTokenCount, WRITE_CONTENT_TOKEN_THRESHOLD } from './agent-tool-token-estimator'
 import { injectBuiltinMcpServers } from './builtin-mcp/registry'
+import { injectChromeDevtoolsMcpServer } from './builtin-mcp/chrome-devtools'
+import { isBuiltinMcpUserEnabled } from './builtin-mcp/settings'
+import { buildPiBuiltinTools } from './adapters/pi-builtin-tools'
+import { buildPiMcpTools } from './adapters/pi-mcp-tools'
+import { buildAgentRuntimeEnv, mergeRuntimeEnv, type AgentRuntimeEnv } from './agent-runtime-env'
 import { isVisibleRunMessage } from './agent-run-message-visibility'
 import { applyAgentSdkAuthEnv } from './agent-sdk-auth-env'
 import { getAgentSdkMaxOutputTokens } from './agent-sdk-output-limits'
+import { resolvePiThinkingLevel } from './agent-thinking-level'
+import { generateCodexTitle } from './adapters/pi-codex-title-generator'
+import { createFallbackTitle, sanitizeGeneratedTitle, TITLE_PROMPT } from './title-generation'
 
 // ===== 类型定义 =====
 
@@ -81,10 +92,20 @@ export interface SessionCallbacks {
   onRunStarted?: (opts: { startedAt: number }) => void
 }
 
+type RecoverableAgentQueryOptions = {
+  prompt: string
+  resumeSessionId?: string
+  resumeSessionAt?: string
+}
+
 // ===== 工具函数 =====
 
 function sdkPermissionModeForPromaMode(mode: PromaPermissionMode): PromaPermissionMode {
   return PROMA_PERMISSION_MODE_CONFIG[mode].sdkMode
+}
+
+function normalizeAgentRuntime(value: unknown): AgentRuntime {
+  return value === 'pi' ? 'pi' : 'claude'
 }
 
 const EMPTY_RESPONSE_RESULT_SUBTYPE = 'empty_response'
@@ -95,6 +116,10 @@ function errorMessageOf(error: unknown): string {
 
 function isMissingActiveQueueChannelError(error: unknown): boolean {
   return errorMessageOf(error).includes('无活跃消息通道可注入队列消息')
+}
+
+function isPartialSDKMessage(message: SDKMessage): boolean {
+  return (message as Record<string, unknown>)._partial === true
 }
 
 /**
@@ -289,12 +314,6 @@ function resolveSDKCliPath(): string {
   return binaryPath
 }
 
-/** 标题生成 Prompt */
-const TITLE_PROMPT = '根据用户的第一条消息，生成一个简短的对话标题（10字以内）。只输出标题，不要有任何其他内容、标点符号或引号。\n\n用户消息：'
-
-/** 标题最大长度 */
-const MAX_TITLE_LENGTH = 20
-
 /** 默认会话标题（用于判断是否需要自动生成） */
 const DEFAULT_SESSION_TITLE = '新 Agent 会话'
 
@@ -339,6 +358,27 @@ function collectAttachedDirectories(params: {
   return result
 }
 
+function escapePromptXml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+function buildPiAdditionalDirectoriesPrompt(directories: string[]): string {
+  if (directories.length === 0) return ''
+  const directoryLines = directories
+    .map((dir, index) => `  <directory index="${index + 1}">${escapePromptXml(dir)}</directory>`)
+    .join('\n')
+  return `
+
+<attached_directories>
+这些目录已由 Proma 授权给当前会话，和当前工作目录同属于用户允许访问的范围。
+如需读取或修改这些目录中的内容，请直接使用绝对路径，不要先复制到当前工作目录。
+${directoryLines}
+</attached_directories>`
+}
+
 // ===== AgentOrchestrator =====
 
 export class AgentOrchestrator {
@@ -378,12 +418,13 @@ export class AgentOrchestrator {
    * 注入 API Key、Base URL、代理、Shell 配置等。
    * 对 Kimi Coding Plan / MiniMax Coding Plan：使用 Bearer 认证（ANTHROPIC_AUTH_TOKEN）。
    */
-  private async buildSdkEnv(
+  private buildSdkRuntimeEnv(
     apiKey: string,
     baseUrl: string | undefined,
     provider: ProviderType,
     modelId: string | undefined,
-  ): Promise<Record<string, string | undefined>> {
+    proxyUrl: string | undefined,
+  ): AgentRuntimeEnv {
     const DEFAULT_ANTHROPIC_URL = 'https://api.anthropic.com'
 
     // 从 process.env 继承系统变量，但清理所有 ANTHROPIC_ 前缀的变量，
@@ -404,15 +445,6 @@ export class AgentOrchestrator {
       ...cleanEnv,
       // 仅 Claude 模型显式提高输出上限；其它兼容模型不注入 max_tokens 覆盖。
       ...(maxOutputTokens ? { CLAUDE_CODE_MAX_OUTPUT_TOKENS: maxOutputTokens } : {}),
-      // 暴露打包进 App 的 proma CLI 路径，供 session-cleaner 等 skill / Agent 调用
-      // （开发模式无编译二进制，getBundledCliPath 返回 undefined，此处不注入，
-      //   skill 回退到源码运行 bun apps/cli/src/index.ts）。
-      ...(getBundledCliPath()
-        ? {
-            PROMA_CLI: getBundledCliPath(),
-            PATH: `${dirname(getBundledCliPath()!)}${process.platform === 'win32' ? ';' : ':'}${cleanEnv.PATH ?? ''}`,
-          }
-        : {}),
       // 启用 Tasks 功能
       CLAUDE_CODE_ENABLE_TASKS: 'true',
       // 禁用 SDK 内置 Workflows，避免每轮注入 workflow 相关提示词。
@@ -456,29 +488,22 @@ export class AgentOrchestrator {
       sdkEnv.ANTHROPIC_BASE_URL = normalizeAnthropicBaseUrlForSdk(baseUrl)
     }
 
-    const proxyUrl = await getEffectiveProxyUrl()
-    if (proxyUrl) {
-      sdkEnv.HTTPS_PROXY = proxyUrl
-      sdkEnv.HTTP_PROXY = proxyUrl
-    }
+    const runtimeEnv = buildAgentRuntimeEnv({
+      proxyUrl,
+      runtimeStatus: getRuntimeStatus(),
+      windowsShellPreference: getSettings().windowsShellPreference,
+      processEnv: sdkEnv,
+    })
 
-    // Windows 平台：配置 Shell 环境
     if (process.platform === 'win32') {
-      const runtimeStatus = getRuntimeStatus()
-      const shellStatus = runtimeStatus?.shell
-
-      if (shellStatus) {
-        if (shellStatus.gitBash?.available && shellStatus.gitBash.path) {
-          sdkEnv.CLAUDE_CODE_SHELL = shellStatus.gitBash.path
-          console.log(`[Agent 编排] 配置 Shell 环境: Git Bash (${shellStatus.gitBash.path})`)
-        } else if (shellStatus.wsl?.available) {
-          sdkEnv.CLAUDE_CODE_SHELL = 'wsl'
-          console.log(`[Agent 编排] 配置 Shell 环境: WSL ${shellStatus.wsl.version} (${shellStatus.wsl.defaultDistro})`)
-        } else {
-          console.warn('[Agent 编排] Windows 平台未检测到可用的 Shell 环境（Git Bash / WSL）')
-        }
-        sdkEnv.CLAUDE_BASH_NO_LOGIN = '1'
+      if (runtimeEnv.shellKind === 'wsl') {
+        console.log(`[Agent 编排] 配置 Shell 环境: WSL (${runtimeEnv.wslDistro ?? '默认发行版'})`)
+      } else if (runtimeEnv.shellKind === 'git-bash') {
+        console.log(`[Agent 编排] 配置 Shell 环境: Git Bash (${runtimeEnv.shellPath})`)
+      } else {
+        console.warn('[Agent 编排] Windows 平台未检测到可用的 Shell 环境（Git Bash / WSL）')
       }
+      sdkEnv.CLAUDE_BASH_NO_LOGIN = '1'
     }
 
     // 针对 claude-agent-sdk 0.2.111+ 的 options.env 叠加语义加固：
@@ -492,7 +517,10 @@ export class AgentOrchestrator {
       }
     }
 
-    return sdkEnv
+    return {
+      ...runtimeEnv,
+      env: mergeRuntimeEnv(sdkEnv, runtimeEnv.env),
+    }
   }
 
   /**
@@ -557,7 +585,33 @@ export class AgentOrchestrator {
         return null
       }
 
-      const apiKey = decryptApiKey(channelId)
+      if (channel.provider === 'openai-codex') {
+        const fallbackTitle = createFallbackTitle(userMessage)
+        try {
+          const [credentials, proxyUrl] = await Promise.all([
+            resolveCodexOAuthCredentials(channelId),
+            getEffectiveProxyUrl(),
+          ])
+          const generatedTitle = await generateCodexTitle({
+            modelId,
+            prompt: TITLE_PROMPT + userMessage,
+            credentials,
+            proxyUrl,
+            onCredentialsRefreshed: (refreshed) => persistCodexOAuthCredentials(channelId, refreshed),
+          })
+          const title = generatedTitle ? sanitizeGeneratedTitle(generatedTitle) : null
+          if (title) {
+            console.log(`[Agent 标题生成] ChatGPT OAuth 语义标题生成成功: "${title}"`)
+            return title
+          }
+          console.warn('[Agent 标题生成] ChatGPT OAuth 返回空标题，使用本地兜底')
+        } catch (error) {
+          console.warn('[Agent 标题生成] ChatGPT OAuth 语义标题生成失败，使用本地兜底:', error)
+        }
+        return fallbackTitle
+      }
+
+      const apiKey = await resolveChannelRuntimeApiKey(channelId)
       const providerAdapter = getAdapter(channel.provider)
       const request = providerAdapter.buildTitleRequest({
         baseUrl: channel.baseUrl,
@@ -569,13 +623,12 @@ export class AgentOrchestrator {
       const proxyUrl = await getEffectiveProxyUrl()
       const fetchFn = getFetchFn(proxyUrl)
       const title = await fetchTitle(request, providerAdapter, fetchFn)
-      if (!title) {
-        console.warn('[Agent 标题生成] API 返回空标题')
-        return null
+      const result = title ? sanitizeGeneratedTitle(title) : null
+      if (!result) {
+        console.warn('[Agent 标题生成] API 未返回可用标题')
+        // OpenCode Go 的服务端偶发返回空标题时，仍要完成重命名，避免会话长期停在默认标题。
+        return channel.provider === 'opencode-go-openai' ? createFallbackTitle(userMessage) : null
       }
-
-      const cleaned = title.trim().replace(/^["'""''「《]+|["'""''」》]+$/g, '').trim()
-      const result = cleaned.slice(0, MAX_TITLE_LENGTH) || null
 
       console.log(`[Agent 标题生成] 生成标题成功: "${result}"`)
       return result
@@ -624,7 +677,7 @@ export class AgentOrchestrator {
    */
   private prepareSessionNotFoundRecovery(
     sessionId: string,
-    queryOptions: ClaudeAgentQueryOptions,
+    queryOptions: RecoverableAgentQueryOptions,
     contextualMessage: string,
     agentCwd: string,
     workspaceSlug: string | undefined,
@@ -658,7 +711,7 @@ export class AgentOrchestrator {
    */
   private prepareResumeFallbackRecovery(
     sessionId: string,
-    queryOptions: ClaudeAgentQueryOptions,
+    queryOptions: RecoverableAgentQueryOptions,
     contextualMessage: string,
     agentCwd: string,
     workspaceSlug: string | undefined,
@@ -703,6 +756,7 @@ export class AgentOrchestrator {
       (m) => m.type === 'assistant' || m.type === 'user' || m.type === 'result'
         || (m.type === 'system' && isPersistableSDKSystemMessage(m as SDKSystemMessage))
     ).filter((m) => {
+      if (isPartialSDKMessage(m)) return false
       if (m.type === 'system') {
         const sysMsg = m as SDKSystemMessage
         if (hasCompactBoundary && sysMsg.subtype === 'status' && sysMsg.compact_result === 'success') {
@@ -765,6 +819,7 @@ export class AgentOrchestrator {
         content: [{ type: 'text', text: errorContent }],
       },
       parent_tool_use_id: null,
+      uuid: randomUUID(),
       error: { message: errorContent, errorType: EMPTY_RESPONSE_RESULT_SUBTYPE },
       _createdAt: Date.now(),
       _errorCode: 'unknown_error',
@@ -787,7 +842,7 @@ export class AgentOrchestrator {
    * 通过 EventBus 分发 AgentEvent，通过 callbacks 发送控制信号。
    */
   async sendMessage(input: AgentSendInput, callbacks: SessionCallbacks): Promise<void> {
-    const { sessionId, userMessage, channelId, modelId, workspaceId, additionalDirectories, customMcpServers, permissionModeOverride, mentionedSkills, mentionedMcpServers, mentionedSessionIds, automationContext } = input
+    const { sessionId, userMessage, channelId, modelId, agentRuntime: inputAgentRuntime, workspaceId, additionalDirectories, customMcpServers, permissionModeOverride, mentionedSkills, mentionedMcpServers, mentionedSessionIds, automationContext, retryOfErrorUuid } = input
     const stderrChunks: string[] = []
     const streamStartedAt = input.startedAt ?? Date.now()
     let userMessagePersisted = false
@@ -810,6 +865,16 @@ export class AgentOrchestrator {
       callbacks.onError('上一条消息仍在处理中，请稍候再试')
       callbacks.onComplete([], { startedAt: streamStartedAt })
       return
+    }
+
+    // 手动重试直接删除原错误，避免它在下一轮完成后仍被历史回放。
+    // 删除失败不阻断重试（例如旧版本遗留的无 UUID 错误）。
+    if (retryOfErrorUuid) {
+      try {
+        removeSDKErrorMessage(sessionId, retryOfErrorUuid)
+      } catch (error) {
+        console.warn(`[Agent 编排] 删除重试前错误失败: ${retryOfErrorUuid}`, error)
+      }
     }
 
     try {
@@ -836,6 +901,7 @@ export class AgentOrchestrator {
           content: [{ type: 'text', text: errorContent }],
         },
         parent_tool_use_id: null,
+        uuid: randomUUID(),
         error: { message: typedError.message, errorType: typedError.code },
         _createdAt: Date.now(),
         _errorCode: typedError.code,
@@ -892,13 +958,76 @@ export class AgentOrchestrator {
     }
 
     let apiKey: string
+    let codexOAuthCredentials: CodexOAuthCredentials | undefined
     try {
-      apiKey = decryptApiKey(channelId)
-    } catch {
+      // ChatGPT (Codex) OAuth 渠道必须保留完整凭据给 Pi runtime，才能按真实
+      // expires 刷新；其余渠道只需解密 API Key。
+      if (channel.provider === 'openai-codex') {
+        codexOAuthCredentials = await resolveCodexOAuthCredentials(channelId)
+        apiKey = codexOAuthCredentials.access
+      } else {
+        apiKey = decryptApiKey(channelId)
+      }
+    } catch (err) {
+      if (channel.provider === 'openai-codex') {
+        reportPreflightError({
+          code: 'expired_oauth_token',
+          title: 'ChatGPT 登录已失效',
+          message: '无法刷新 ChatGPT 登录凭据，登录可能已过期或被撤销。请在设置中重新登录 ChatGPT。',
+          actions: [
+            { key: 's', label: '打开渠道设置', action: 'open_channel_settings' },
+          ],
+          canRetry: false,
+        })
+        return
+      }
       reportPreflightError({
         code: 'api_key_decrypt_failed',
         title: 'API Key 解密失败',
         message: '无法解密此渠道的 API Key，可能是系统密钥环异常。请到设置中重新填写 API Key。',
+        actions: [
+          { key: 's', label: '打开渠道设置', action: 'open_channel_settings' },
+        ],
+        canRetry: false,
+      })
+      return
+    }
+
+    const appSettings = getSettings()
+    let sessionMeta = getAgentSessionMeta(sessionId)
+    // 历史会话缺失 runtime 时按 Claude 兼容；新会话创建时已持久化其默认 runtime。
+    const previousAgentRuntime = normalizeAgentRuntime(sessionMeta?.agentRuntime ?? 'claude')
+    const agentRuntime = normalizeAgentRuntime(inputAgentRuntime ?? sessionMeta?.agentRuntime ?? 'claude')
+    if (!sessionMeta?.agentRuntime || previousAgentRuntime !== agentRuntime) {
+      try {
+        sessionMeta = updateAgentSessionMeta(sessionId, {
+          agentRuntime,
+          ...(previousAgentRuntime !== agentRuntime ? { sdkSessionId: undefined } : {}),
+        })
+      } catch {
+        // 新会话索引异常时继续运行，后续错误路径会正常暴露。
+      }
+    }
+    console.log(`[Agent 编排] Agent runtime: ${agentRuntime}`)
+
+    if (!channel.enabled) {
+      reportPreflightError({
+        code: 'channel_disabled',
+        title: '渠道已禁用',
+        message: '当前会话引用的渠道已被禁用，请在设置中启用渠道或重新选择模型。',
+        actions: [
+          { key: 's', label: '打开渠道设置', action: 'open_channel_settings' },
+        ],
+        canRetry: false,
+      })
+      return
+    }
+
+    if (agentRuntime === 'claude' && !isAgentCompatibleProvider(channel.provider)) {
+      reportPreflightError({
+        code: 'agent_provider_not_supported',
+        title: '渠道不兼容 Claude Core',
+        message: '此渠道使用的不是 Anthropic Messages 协议。请切换到 Pi Core，或在设置中配置 Anthropic 兼容渠道。',
         actions: [
           { key: 's', label: '打开渠道设置', action: 'open_channel_settings' },
         ],
@@ -962,12 +1091,17 @@ export class AgentOrchestrator {
       process.env.ANTHROPIC_BASE_URL = normalizeAnthropicBaseUrlForSdk(channel.baseUrl)
     }
 
-    const modelRouting = resolveAgentModelRouting({ modelId: modelId || DEFAULT_MODEL_ID, provider: channel.provider })
-    const sdkEnv = await this.buildSdkEnv(apiKey, channel.baseUrl, channel.provider, modelId || DEFAULT_MODEL_ID)
-    applyAgentModelRoutingToEnv(sdkEnv, modelRouting, channel.provider)
+    const proxyUrl = await getEffectiveProxyUrl()
+    const runtimeEnv = this.buildSdkRuntimeEnv(
+      apiKey,
+      channel.baseUrl,
+      channel.provider,
+      modelId || DEFAULT_MODEL_ID,
+      proxyUrl,
+    )
+    const sdkEnv = runtimeEnv.env
 
     // 4. 读取已有的 SDK session ID（用于 resume）
-    const sessionMeta = getAgentSessionMeta(sessionId)
     let existingSdkSessionId = sessionMeta?.sdkSessionId
 
     // 4.1 检测回退后的 resume 截断点（快照回退功能）
@@ -985,18 +1119,17 @@ export class AgentOrchestrator {
     const accumulatedMessages: SDKMessage[] = []
     let resolvedModel = modelId || DEFAULT_MODEL_ID
     let titleGenerationStarted = false
+    /** 捕获到的 SDK session ID（用于 resume / recovery） */
+    let capturedSdkSessionId = existingSdkSessionId
     let agentCwd: string | undefined
     let workspaceSlug: string | undefined
     let workspace: import('@proma/shared').AgentWorkspace | undefined
 
     try {
-      // 8. 动态导入 SDK
-      const sdk = await import('@anthropic-ai/claude-agent-sdk')
+      const sdk = agentRuntime === 'claude' ? await import('@anthropic-ai/claude-agent-sdk') : undefined
+      const cliPath = agentRuntime === 'claude' ? resolveSDKCliPath() : undefined
 
-      // 9. 构建 SDK query
-      const cliPath = resolveSDKCliPath()
-
-      if (!existsSync(cliPath)) {
+      if (agentRuntime === 'claude' && cliPath && !existsSync(cliPath)) {
         const subpkg = `@anthropic-ai/claude-agent-sdk-${process.platform}-${process.arch}`
         console.error(`[Agent 编排] SDK native binary 不存在: ${cliPath}`)
         reportPreflightError({
@@ -1028,7 +1161,7 @@ export class AgentOrchestrator {
       }
 
       console.log(
-        `[Agent 编排] 启动 SDK — binary: ${cliPath}, 模型: ${modelId || DEFAULT_MODEL_ID}, resume: ${existingSdkSessionId ?? '无'}`,
+        `[Agent 编排] 启动 ${agentRuntime} runtime — ${cliPath ? `binary: ${cliPath}, ` : ''}模型: ${modelId || DEFAULT_MODEL_ID}, resume: ${existingSdkSessionId ?? '无'}`,
       )
 
       // 确定 Agent 工作目录
@@ -1043,7 +1176,9 @@ export class AgentOrchestrator {
           workspace = ws
           console.log(`[Agent 编排] 使用 session 级别 cwd: ${agentCwd} (${ws.name}/${sessionId})`)
 
-          ensurePluginManifest(ws.slug, ws.name)
+          if (agentRuntime === 'claude') {
+            ensurePluginManifest(ws.slug, ws.name)
+          }
 
           if (existingSdkSessionId) {
             console.log(`[Agent 编排] 将尝试 resume: ${existingSdkSessionId}`)
@@ -1058,7 +1193,7 @@ export class AgentOrchestrator {
       // forkSourceDir 仅作为备用参考字段保留，不再影响 agentCwd。
 
       // 9.5 确保 SDK 项目设置（plansDirectory → .context）
-      {
+      if (agentRuntime === 'claude') {
         const claudeSettingsDir = join(agentCwd, '.claude')
         if (!existsSync(claudeSettingsDir)) mkdirSync(claudeSettingsDir, { recursive: true })
         const settingsPath = join(claudeSettingsDir, 'settings.json')
@@ -1085,9 +1220,16 @@ export class AgentOrchestrator {
         if (removePromaAutoCompactSettings(sdkProjectSettings)) {
           needsWrite = true
         }
+        // Proma Git/PR 推广标识：覆盖 Claude SDK 默认 Co-Authored-By / Generated with
+        if (applyClaudeSdkAttributionSettings(
+          sdkProjectSettings,
+          isGitAttributionEnabled(getSettings().gitAttributionEnabled),
+        )) {
+          needsWrite = true
+        }
         if (needsWrite) {
           writeFileSync(settingsPath, JSON.stringify(sdkProjectSettings, null, 2))
-          console.log(`[Agent 编排] 已设置 SDK settings (plansDirectory, skipWebFetchPreflight, autoMemoryDirectory, autoCompact)`)
+          console.log(`[Agent 编排] 已设置 SDK settings (plansDirectory, skipWebFetchPreflight, autoMemoryDirectory, autoCompact, attribution)`)
         }
       }
 
@@ -1102,25 +1244,57 @@ export class AgentOrchestrator {
 
       // 10. 构建 MCP 服务器配置 + 记忆工具 + 生图工具 + 自定义工具
       const mcpServers = this.buildMcpServers(workspaceSlug)
-      const builtinMcpResult = await injectBuiltinMcpServers({
-        sdk,
-        mcpServers,
-        sessionId,
-        channelId,
-        modelId,
-        workspaceId,
-        workspaceSlug,
-        agentCwd,
-        permissionMode: permissionModeOverride ?? sessionMeta?.permissionMode ?? PROMA_DEFAULT_PERMISSION_MODE,
-        triggeredBy: input.triggeredBy,
-        sessionMeta,
-      })
+      if (isBuiltinMcpUserEnabled('chrome-devtools')) {
+        injectChromeDevtoolsMcpServer(mcpServers)
+      }
+      let piBuiltinTools: unknown[] = []
+      let piMcpTools: unknown[] = []
+      const builtinMcpResult = agentRuntime === 'claude' && sdk
+        ? await injectBuiltinMcpServers({
+          sdk,
+          mcpServers,
+          sessionId,
+          channelId,
+          modelId,
+          agentRuntime,
+          workspaceId,
+          workspaceSlug,
+          agentCwd,
+          permissionMode: permissionModeOverride ?? sessionMeta?.permissionMode ?? PROMA_DEFAULT_PERMISSION_MODE,
+          triggeredBy: input.triggeredBy,
+          sessionMeta,
+        })
+        : await (async () => {
+          const piSdk = await import('@earendil-works/pi-coding-agent')
+          const result = await buildPiBuiltinTools(piSdk, {
+            sessionId,
+            channelId,
+            modelId,
+            agentRuntime,
+            workspaceId,
+            workspaceSlug,
+            permissionMode: permissionModeOverride ?? sessionMeta?.permissionMode ?? PROMA_DEFAULT_PERMISSION_MODE,
+            triggeredBy: input.triggeredBy,
+          })
+          piBuiltinTools = result.tools
+          return { collaborationAvailable: result.collaborationAvailable }
+        })()
       const collaborationAvailable = builtinMcpResult.collaborationAvailable
 
       // 合并外部注入的自定义 MCP 服务器（如飞书群聊工具）
       if (customMcpServers) {
         Object.assign(mcpServers, customMcpServers)
         console.log(`[Agent 编排] 已合并 ${Object.keys(customMcpServers).length} 个自定义 MCP 服务器`)
+      }
+
+      // Pi SDK 没有 Claude Agent SDK 的 mcpServers 参数；Claude 路径保持原生 MCP 不变，
+      // Pi 路径由 Proma 主进程连接用户 MCP server，并转换为 Pi customTools。
+      if (agentRuntime === 'pi' && Object.keys(mcpServers).length > 0) {
+        try {
+          piMcpTools = await buildPiMcpTools(mcpServers)
+        } catch (error) {
+          console.warn('[Agent 编排] Pi MCP 工具桥接失败，已跳过用户 MCP:', error)
+        }
       }
 
       // 11. 构建动态上下文和最终 prompt
@@ -1169,7 +1343,6 @@ export class AgentOrchestrator {
 
       // 12. 读取应用设置并确定权限模式
       // 权限模式只属于当前 session；新会话默认完全自动模式。
-      const appSettings = getSettings()
       const initialPermissionMode: PromaPermissionMode = permissionModeOverride
         ?? PROMA_DEFAULT_PERMISSION_MODE
       // 注册到 Map，支持运行中动态切换
@@ -1234,13 +1407,20 @@ export class AgentOrchestrator {
       // Plan 模式下允许的只读工具（不包含 Write/Edit/Bash 等写操作）
       const PLAN_MODE_ALLOWED_TOOLS = new Set([
         'Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch',
-        'Agent', 'TodoRead', 'TodoWrite', 'TaskOutput',
+        'TodoRead', 'TodoWrite', 'TaskOutput',
         'TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet',
         'ListMcpResourcesTool', 'ReadMcpResourceTool',
       ])
       const DEFERRED_OR_PROACTIVE_TOOLS = new Set([
         'REPL', 'Workflow', 'ScheduleWakeup', 'Monitor', 'PushNotification',
         'CronCreate', 'CronDelete', 'RemoteTrigger',
+      ])
+      const PLAN_MODE_READ_ONLY_CHROME_DEVTOOLS = new Set([
+        'mcp__chrome_devtools__list_pages',
+        'mcp__chrome_devtools__take_snapshot',
+        'mcp__chrome_devtools__take_screenshot',
+        'mcp__chrome_devtools__list_network_requests',
+        'mcp__chrome_devtools__performance_stop_trace',
       ])
 
       /** Plan 模式是否已被 Agent 进入（初始 plan 模式时天然为 true，其他模式需 EnterPlanMode 触发） */
@@ -1361,7 +1541,14 @@ export class AgentOrchestrator {
               }
               return { behavior: 'deny' as const, message: '计划模式下不允许执行写操作，请在计划审批通过后再执行' }
             }
-            // MCP 工具（以 mcp__ 开头）允许调用（调研用）
+            // Chrome DevTools MCP 同时包含只读观察和会改变页面状态的操作。
+            // 计划模式只允许快照、截图、网络列表等调研工具；点击、输入、脚本执行等需等计划通过。
+            if (toolName.startsWith('mcp__chrome_devtools__')) {
+              return PLAN_MODE_READ_ONLY_CHROME_DEVTOOLS.has(toolName)
+                ? { behavior: 'allow' as const, updatedInput: input }
+                : { behavior: 'deny' as const, message: '计划模式下不允许执行会改变浏览器页面状态的 Chrome DevTools 操作，请在计划审批通过后再执行' }
+            }
+            // 其他 MCP 工具维持既有策略：计划模式下允许调研用 MCP。
             if (toolName.startsWith('mcp__')) {
               return { behavior: 'allow' as const, updatedInput: input }
             }
@@ -1377,19 +1564,126 @@ export class AgentOrchestrator {
       }
 
       // 13. 构建 Adapter 查询选项
-      // 检测用户选用的模型是否为 Claude 系列，决定 SubAgent 是否使用独立模型分层
-      const selectedModelId = modelId || DEFAULT_MODEL_ID
-      const claudeAvailable = selectedModelId.toLowerCase().includes('claude')
       const maxTurns = appSettings.agentMaxTurns && appSettings.agentMaxTurns > 0
         ? appSettings.agentMaxTurns
         : undefined
-      const queryOptions: ClaudeAgentQueryOptions = {
+      const selectedModelId = modelId || DEFAULT_MODEL_ID
+      const allAdditionalDirectories = collectAttachedDirectories({
+        extraDirs: additionalDirectories,
+        sessionMeta,
+        workspaceSlug,
+      })
+      const systemPromptAppend = buildSystemPrompt({
+        agentRuntime,
+        workspaceName: workspace?.name,
+        workspaceSlug,
+        sessionId,
+        permissionMode: initialPermissionMode,
+        collaborationAvailable,
+      }) + (automationContext ? `\n\n## 定时任务执行上下文\n\n${automationContext}` : '')
+      const handleSessionId = (sdkSessionId: string, piSessionFile?: string): void => {
+        // 仅在 session_id 真正变化时才持久化。SDK v2 几乎每条消息都会回调 onSessionId，
+        // capturedSdkSessionId 已初始化为 existingSdkSessionId，并在 recovery 时同步重置。
+        const isNewSessionId = sdkSessionId !== capturedSdkSessionId
+        const needsPiSessionFile = agentRuntime === 'pi' && !!piSessionFile && sessionMeta?.piSessionFile !== piSessionFile
+        capturedSdkSessionId = sdkSessionId
+        if (isNewSessionId || needsPiSessionFile) {
+          try {
+            updateAgentSessionMeta(sessionId, {
+              sdkSessionId,
+              ...(agentRuntime === 'pi' && piSessionFile ? { piSessionFile } : {}),
+            })
+            console.log(`[Agent 编排] 已保存 SDK session_id: ${sdkSessionId}`)
+          } catch (err) {
+            console.error(`[Agent 编排] 保存 SDK session_id 失败:`, err)
+          }
+        }
+
+        if (!titleGenerationStarted) {
+          titleGenerationStarted = true
+          this.autoGenerateTitle(sessionId, userMessage, channelId, resolvedModel, callbacks)
+            .catch((err) => console.error('[Agent 编排] 标题生成未捕获异常:', err))
+        }
+      }
+      const handleModelResolved = (model: string): void => {
+        // `[1m]` 是 SDK 内部上下文变体，不应泄漏到标题生成或用户可见的模型名。
+        resolvedModel = model.replace(/\[1m\]$/i, '')
+        console.log(`[Agent 编排] SDK 确认模型: ${resolvedModel}`)
+        this.eventBus.emit(sessionId, { kind: 'proma_event', event: { type: 'model_resolved', model: resolvedModel } })
+      }
+      const handleContextWindow = (cw: number): void => {
+        const inferredWindow = inferAgentSdkContextWindow(modelId, channel.provider)
+        const contextWindow = Math.max(cw, inferredWindow ?? 0) || cw
+        console.log(`[Agent 编排] 缓存 contextWindow: ${contextWindow}`)
+        // result 消息里的真实 contextWindow 透传到 renderer，
+        // 覆盖流式过程中按模型名推断的 fallback 值（智谱等端点会把 [1m] 等后缀剥掉，导致 fallback 不准）
+        this.eventBus.emit(sessionId, {
+          kind: 'proma_event',
+          event: { type: 'context_window', contextWindow },
+        })
+      }
+      const piCustomTools = [...piBuiltinTools, ...piMcpTools]
+      const queryOptions: ClaudeAgentQueryOptions | PiAgentQueryOptions = agentRuntime === 'pi' ? {
+        agentRuntime: 'pi',
         sessionId,
         prompt: finalPrompt,
-        // 已验证的内置供应商可用 `[1m]` 选择扩展上下文；通用兼容端点保持原始模型 ID。
-        model: resolveAgentSdkModelId(selectedModelId, channel.provider),
+        // pi runtime 不支持 Claude Agent SDK 的 `[1m]` 扩展上下文变体：
+        // 智谱等端点不识别 glm-5.2[1m] 这类后缀，会返回 1211「模型不存在」。
+        // 因此 pi 分支直接使用用户配置的原始模型 ID，不追加任何 `[1m]`。
+        model: selectedModelId,
         cwd: agentCwd,
-        sdkCliPath: cliPath,
+        apiKey,
+        baseUrl: channel.baseUrl,
+        provider: channel.provider,
+        channelName: channel.name,
+        proxyUrl,
+        runtimeEnv,
+        ...(maxTurns != null && { maxTurns }),
+        permissionMode: initialPermissionMode,
+        canUseTool,
+        systemPrompt: systemPromptAppend + buildPiAdditionalDirectoriesPrompt(allAdditionalDirectories),
+        resumeSessionId: existingSdkSessionId,
+        piAgentDir: getSdkConfigDir(),
+        piSessionDir: join(getSdkConfigDir(), 'sessions'),
+        ...(allAdditionalDirectories.length > 0 && { additionalDirectories: allAdditionalDirectories }),
+        ...(workspaceSlug ? { additionalSkillPaths: [getWorkspaceSkillsDir(workspaceSlug)] } : {}),
+        ...(mentionedSkills?.length ? { skillMentions: mentionedSkills } : {}),
+        ...(isCompactCommand ? { compactRequest: true } : {}),
+        ...(sessionMeta?.codexFastMode && channel.provider === 'openai-codex' ? { codexFastMode: true } : {}),
+        ...(codexOAuthCredentials && {
+          codexOAuthCredentials,
+          onCodexOAuthCredentialsRefreshed: (credentials: CodexOAuthCredentials) => {
+            persistCodexOAuthCredentials(channelId, credentials)
+          },
+        }),
+        ...((channel.provider === 'openai-codex' || channel.provider === 'openai-responses' || channel.provider === 'openai' || channel.provider === 'custom')
+          && isOpenAIReasoningSupportedModel(selectedModelId) && {
+            openAIThinkingLevel: resolvePiThinkingLevel(appSettings, sessionMeta, channel.provider, selectedModelId),
+          }),
+        thinkingLevel: resolvePiThinkingLevel(appSettings, sessionMeta, channel.provider, selectedModelId),
+        ...(appSettings.agentMaxBudgetUsd != null && appSettings.agentMaxBudgetUsd > 0 && {
+          maxBudgetUsd: appSettings.agentMaxBudgetUsd,
+        }),
+        ...(piCustomTools.length > 0 && { customTools: piCustomTools as PiAgentQueryOptions['customTools'] }),
+        onSessionId: handleSessionId,
+        onPiEntryBindings: (bindings) => {
+          const latest = getAgentSessionMeta(sessionId)
+          updateAgentSessionMeta(sessionId, {
+            piEntryBindings: { ...(latest?.piEntryBindings ?? {}), ...bindings },
+          })
+        },
+        onModelResolved: handleModelResolved,
+        onContextWindow: handleContextWindow,
+        onRetry: (retry) => {
+          this.eventBus.emit(sessionId, { kind: 'proma_event', event: { type: 'retry', ...retry } })
+        },
+      } : {
+        agentRuntime: 'claude',
+        sessionId,
+        prompt: finalPrompt,
+        model: modelId || DEFAULT_MODEL_ID,
+        cwd: agentCwd,
+        sdkCliPath: cliPath!,
         env: sdkEnv,
         ...(maxTurns != null && { maxTurns }),
         sdkPermissionMode: sdkPermissionModeForPromaMode(initialPermissionMode),
@@ -1402,19 +1696,11 @@ export class AgentOrchestrator {
         allowDangerouslySkipPermissions: !canUseTool,
         canUseTool,
         // claude_code preset 提供基础环境信息（platform/shell/OS/git/model/知识截止日期等）
-        // buildSystemPrompt 追加 Proma 特有指令（角色定义、SubAgent 策略、工作区信息等）
+        // buildSystemPrompt 追加 Proma 特有指令（角色定义、子 Agent 委派策略、工作区信息等）
         systemPrompt: {
           type: 'preset',
           preset: 'claude_code',
-          append: buildSystemPrompt({
-            workspaceName: workspace?.name,
-            workspaceSlug,
-            sessionId,
-            permissionMode: initialPermissionMode,
-            claudeAvailable,
-            deepSeekSubagentModel: modelRouting.subagentModel,
-            collaborationAvailable,
-          }) + (automationContext ? `\n\n## 定时任务执行上下文\n\n${automationContext}` : ''),
+          append: systemPromptAppend,
         },
         resumeSessionId: existingSdkSessionId,
         // 回退后 resume：从指定消息处继续（SDK 在同一 JSONL 内创建分支）
@@ -1425,14 +1711,7 @@ export class AgentOrchestrator {
           plugins: [{ type: 'local' as const, path: getAgentWorkspacePath(workspaceSlug), skipMcpDiscovery: true }],
         }),
         // 合并附加目录：用户当次输入 + 会话级 + 工作区级（详见 collectAttachedDirectories）
-        ...(() => {
-          const allDirs = collectAttachedDirectories({
-            extraDirs: additionalDirectories,
-            sessionMeta,
-            workspaceSlug,
-          })
-          return allDirs.length > 0 ? { additionalDirectories: allDirs } : {}
-        })(),
+        ...(allAdditionalDirectories.length > 0 ? { additionalDirectories: allAdditionalDirectories } : {}),
         // 启用文件检查点，支持 rewindFiles 回退
         enableFileCheckpointing: true,
         // SDK 0.2.52+ 新增选项（从 settings 读取）
@@ -1441,53 +1720,16 @@ export class AgentOrchestrator {
         ...(appSettings.agentMaxBudgetUsd != null && appSettings.agentMaxBudgetUsd > 0 && {
           maxBudgetUsd: appSettings.agentMaxBudgetUsd,
         }),
+        // Proma 统一使用 collaboration 派生子会话承载子 Agent 委派，避免 SDK 临时
+        // Agent/Task 与 Proma 会话体系分裂。
+        disallowedTools: ['Agent', 'Task'],
         onStderr: (data: string) => {
           stderrChunks.push(data)
           console.error(`[Agent SDK stderr] ${data}`)
         },
-        onSessionId: (sdkSessionId: string) => {
-          // 仅在 session_id 真正变化时才持久化。SDK v2 几乎每条消息都会回调 onSessionId，
-          // 旧逻辑误用「初始快照后永不更新」的 existingSdkSessionId 作比较（回调里更新的是
-          // capturedSdkSessionId），导致新会话每条消息都全量读写会话索引（readIndex + 原子写 +
-          // 备份），再叠加一次读回验证。历史会话多 + 多会话并发时引发同步 fsync 风暴，周期性
-          // 卡死主进程事件循环。capturedSdkSessionId 已初始化为 existingSdkSessionId，并在
-          // session-not-found 重试时与其同步重置，比较它即可正确判定「真正变化」。
-          const isNewSessionId = sdkSessionId !== capturedSdkSessionId
-          capturedSdkSessionId = sdkSessionId
-          if (isNewSessionId) {
-            try {
-              updateAgentSessionMeta(sessionId, { sdkSessionId })
-              console.log(`[Agent 编排] 已保存 SDK session_id: ${sdkSessionId}`)
-            } catch (err) {
-              console.error(`[Agent 编排] 保存 SDK session_id 失败:`, err)
-            }
-          }
-
-          // SDK 初始化完成后立即触发标题生成，使多会话并发时用户能快速区分
-          if (!titleGenerationStarted) {
-            titleGenerationStarted = true
-            this.autoGenerateTitle(sessionId, userMessage, channelId, resolvedModel, callbacks)
-              .catch((err) => console.error('[Agent 编排] 标题生成未捕获异常:', err))
-          }
-        },
-        onModelResolved: (model: string) => {
-          // `[1m]` 是 SDK 内部上下文变体，不应泄漏到标题生成或用户可见的模型名。
-          resolvedModel = model.replace(/\[1m\]$/i, '')
-          console.log(`[Agent 编排] SDK 确认模型: ${resolvedModel}`)
-          // 通知渲染进程更新流式状态中的模型信息
-          this.eventBus.emit(sessionId, { kind: 'proma_event', event: { type: 'model_resolved', model: resolvedModel } })
-        },
-        onContextWindow: (cw: number) => {
-          const inferredWindow = inferAgentSdkContextWindow(modelId, channel.provider)
-          const contextWindow = Math.max(cw, inferredWindow ?? 0) || cw
-          console.log(`[Agent 编排] 缓存 contextWindow: ${contextWindow}`)
-          // result 消息里的真实 contextWindow 透传到 renderer，
-          // 覆盖流式过程中按模型名推断的 fallback 值（智谱等端点会把 [1m] 等后缀剥掉，导致 fallback 不准）
-          this.eventBus.emit(sessionId, {
-            kind: 'proma_event',
-            event: { type: 'context_window', contextWindow },
-          })
-        },
+        onSessionId: handleSessionId,
+        onModelResolved: handleModelResolved,
+        onContextWindow: handleContextWindow,
       }
 
       console.log(`[Agent 编排] 开始通过 Adapter 遍历事件流...`)
@@ -1503,9 +1745,11 @@ export class AgentOrchestrator {
       let invisibleRecoveryAttempts = 0
       const canAutoRetry = (attempt: number): boolean =>
         attempt <= MAX_AUTO_RETRIES && retryDelayElapsedMs < MAX_AUTO_RETRY_WAIT_MS
+      // Pi runtime 使用其 session 内的 native retry（agent.continue），能保留已完成的
+      // tool_result；禁止外层以原 prompt 重开 query，但保留 session-not-found 等显式恢复。
+      const canReplayPromptForRetry = (attempt: number): boolean =>
+        agentRuntime !== 'pi' && canAutoRetry(attempt)
 
-      /** 捕获到的 SDK session ID（用于 resume / recovery） */
-      let capturedSdkSessionId = existingSdkSessionId
       const canTryThinkingSignatureRecovery = (attempt: number): boolean =>
         !thinkingSignatureRecoveryAttempted &&
         canAutoRetry(attempt) &&
@@ -1621,7 +1865,10 @@ export class AgentOrchestrator {
 
             pendingNext = null
             const msg = iterResult.value
-            if (isVisibleRunMessage(msg)) {
+            const isPartialMessage = isPartialSDKMessage(msg)
+            // isVisibleRunMessage 已抽到独立模块，不含 partial 判断；
+            // pi runtime 的流式 partial 消息不应计入可见消息数，故在此显式排除。
+            if (!isPartialMessage && isVisibleRunMessage(msg)) {
               visibleRunMessageCount += 1
             }
 
@@ -1650,10 +1897,14 @@ export class AgentOrchestrator {
             }
 
             // 检测 assistant 消息中的 SDK 错误
-            if (msg.type === 'assistant') {
+            if (msg.type === 'assistant' && !isPartialMessage) {
               const assistantMsg = msg as SDKAssistantMessage
               if (assistantMsg.error) {
-                const { detailedMessage, originalError } = extractErrorDetails(assistantMsg as unknown as Parameters<typeof extractErrorDetails>[0])
+                // Pi keeps generated text and the transport failure in separate fields. Claude's
+                // content-first extractor would otherwise promote the text to error details.
+                const { detailedMessage, originalError } = agentRuntime === 'pi'
+                  ? getPiAssistantErrorDetails(assistantMsg)
+                  : extractErrorDetails(assistantMsg as unknown as Parameters<typeof extractErrorDetails>[0])
                 let errorCode = assistantMsg.error.errorType || 'unknown_error'
                 if (isPromptTooLongError(detailedMessage, originalError)) {
                   errorCode = 'prompt_too_long'
@@ -1729,7 +1980,7 @@ export class AgentOrchestrator {
                 }
 
                 // 判断是否可自动重试
-                if (isAutoRetryableTypedError(typedError) && canAutoRetry(attempt)) {
+                if (isAutoRetryableTypedError(typedError) && canReplayPromptForRetry(attempt)) {
                   lastRetryableError = typedError.title
                     ? `${typedError.title}: ${typedError.message}`
                     : typedError.message
@@ -1744,7 +1995,17 @@ export class AgentOrchestrator {
                 }
 
                 // 不可重试 → 终止
+                const hasPiPartialOutput = agentRuntime === 'pi' && hasPiAssistantTextContent(assistantMsg)
+                if (hasPiPartialOutput) {
+                  const partialOutput = stripPiAssistantError(assistantMsg)
+                  if (modelId) partialOutput._channelModelId = modelId
+                  partialOutput._channelProvider = channel.provider
+                  accumulatedMessages.push(partialOutput)
+                  // Reuse the Pi UUID to replace the latest partial frame with normal markdown output.
+                  this.eventBus.emit(sessionId, { kind: 'sdk_message', message: partialOutput })
+                }
                 this.persistSDKMessages(sessionId, accumulatedMessages, Date.now() - queryStartedAt)
+                accumulatedMessages.length = 0
                 if (typedError.code === 'prompt_too_long') {
                   try { updateAgentSessionMeta(sessionId, { sdkSessionId: undefined }) } catch { /* 忽略 */ }
                 }
@@ -1758,6 +2019,7 @@ export class AgentOrchestrator {
                     content: [{ type: 'text', text: errorContent }],
                   },
                   parent_tool_use_id: null,
+                  uuid: randomUUID(),
                   _channelModelId: modelId,
                   _channelProvider: channel.provider,
                   error: { message: typedError.message, errorType: typedError.code },
@@ -1793,7 +2055,7 @@ export class AgentOrchestrator {
             // - 对 system 消息，仅累积需要长期可见的状态（压缩 / 权限拒绝）
             if (msg.type === 'assistant' || msg.type === 'user' || msg.type === 'result') {
               const msgRecord = msg as Record<string, unknown>
-              if (!msgRecord.isReplay) {
+              if (!msgRecord.isReplay && !isPartialMessage) {
                 if (msg.type === 'user') {
                   // 仅累积包含 tool_result 的 user 消息（跳过 SDK 重新发出的初始用户消息）
                   const content = (msg as { message?: { content?: Array<{ type: string }> } }).message?.content
@@ -1877,7 +2139,7 @@ export class AgentOrchestrator {
                 capturedResultSubtype === 'error_during_execution' &&
                 capturedResultErrors?.length &&
                 isAutoRetryableCatchError(null, capturedResultErrors.join('\n')) &&
-                canAutoRetry(attempt)
+                canReplayPromptForRetry(attempt)
               ) {
                 lastRetryableError = capturedResultErrors[0]
                 console.log(`[Agent 编排] 可重试错误 (result error_during_execution, attempt ${attempt}/${MAX_AUTO_RETRIES}): ${lastRetryableError}`)
@@ -2055,7 +2317,7 @@ export class AgentOrchestrator {
           }
 
           // 判断是否可重试
-          if (isAutoRetryableCatchError(apiError, rawErrorMessage, stderrOutput) && canAutoRetry(attempt)) {
+          if (isAutoRetryableCatchError(apiError, rawErrorMessage, stderrOutput) && canReplayPromptForRetry(attempt)) {
             lastRetryableError = apiError
               ? `API Error ${apiError.statusCode}: ${apiError.message}`
               : (error instanceof Error ? error.message : '未知错误')
@@ -2135,6 +2397,7 @@ export class AgentOrchestrator {
                 content: [{ type: 'text', text: errorContent }],
               },
               parent_tool_use_id: null,
+              uuid: randomUUID(),
               error: { message: errorContent, errorType: errorCode },
               _createdAt: Date.now(),
               _errorCode: errorCode,
@@ -2194,6 +2457,7 @@ export class AgentOrchestrator {
             content: [{ type: 'text', text: retryErrorContent }],
           },
           parent_tool_use_id: null,
+          uuid: randomUUID(),
           error: { message: retryErrorContent, errorType: 'unknown_error' },
           _createdAt: Date.now(),
           _errorCode: 'unknown_error',
@@ -2278,6 +2542,20 @@ export class AgentOrchestrator {
     const sessionMeta = getAgentSessionMeta(sessionId)
     if (!sessionMeta?.sdkSessionId) {
       throw new Error('会话没有 SDK session ID，无法回退')
+    }
+
+    // Pi 使用原生树状 session 导出一个持久 artifact；不能复用 Claude snapshot
+    // 或仅截断 renderer JSONL，否则下一轮 resume 会重新加载被舍弃的上下文。
+    if (sessionMeta.agentRuntime === 'pi') {
+      await rewindPiAgentSession(sessionId, assistantMessageUuid)
+      const kept = truncateSDKMessages(sessionId, assistantMessageUuid)
+      return {
+        remainingMessages: kept.length,
+        fileRewind: {
+          canRewind: false,
+          error: '已回退 Pi 对话；Pi 文件回退尚未启用，当前未修改任何文件。',
+        },
+      }
     }
 
     // 0.5 从 SDK session JSONL 解析对应的 user message UUID（rewindFiles 需要）

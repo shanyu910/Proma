@@ -48,6 +48,38 @@ export type ThinkingConfig =
  */
 export type AgentEffort = 'low' | 'medium' | 'high' | 'max'
 
+/** Agent 思考等级（用于 Pi runtime；Claude runtime 继续使用 ThinkingConfig/AgentEffort） */
+export type AgentThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+
+/** 是否为 Proma 可暴露 reasoning.effort 的 OpenAI 推理模型。 */
+export function isOpenAIReasoningSupportedModel(modelId: string | undefined): boolean {
+  const normalized = modelId?.toLowerCase() ?? ''
+  // Pi catalog 中 gpt-5*-chat-latest 是非 reasoning 的对话变体；它们不能接受
+  // reasoning.effort，必须在 UI 层与请求层共同排除。
+  if (normalized.endsWith('-chat-latest')) return false
+  return normalized.startsWith('gpt-5') || /^(o1|o3|o4)(?:-|$)/.test(normalized)
+}
+
+/** GPT-5.6 系列支持 Pi/OpenAI 的 max 思考等级。 */
+export function isOpenAIReasoningMaxSupportedModel(modelId: string | undefined): boolean {
+  const normalized = modelId?.toLowerCase() ?? ''
+  return /^gpt-5\.6(?:-|$)/.test(normalized) && isOpenAIReasoningSupportedModel(modelId)
+}
+
+/** 支持 ChatGPT Codex Fast Mode（priority service tier）的模型。 */
+export const CODEX_FAST_MODE_MODEL_IDS = [
+  'gpt-5.4',
+  'gpt-5.5',
+  'gpt-5.6-sol',
+  'gpt-5.6-terra',
+  'gpt-5.6-luna',
+] as const
+
+/** 模型 ID 是否可通过 ChatGPT Codex OAuth 使用 Fast Mode。 */
+export function isCodexFastModeSupportedModel(modelId: string | undefined): boolean {
+  return modelId !== undefined && (CODEX_FAST_MODE_MODEL_IDS as readonly string[]).includes(modelId.toLowerCase())
+}
+
 /**
  * 自定义子代理定义
  *
@@ -218,6 +250,8 @@ export interface SDKResultMessage {
   modelUsage?: Record<string, { contextWindow?: number }>
   errors?: string[]
   terminal_reason?: string
+  /** Pi 手动压缩用于收束流的内部 result，不代表真实模型 usage */
+  isSyntheticCompactionResult?: boolean
   background_tasks?: SDKBackgroundTaskSummary[]
   session_crons?: SDKSessionCronSummary[]
   session_id?: string
@@ -241,9 +275,11 @@ export interface SDKSystemMessage {
   tool_use_id?: string
   status?: string
   /** SDK status: 上下文压缩结果 */
-  compact_result?: 'success' | 'failed'
+  compact_result?: 'success' | 'failed' | 'noop'
   /** SDK status: 上下文压缩失败原因 */
   compact_error?: string
+  /** Pi 手动压缩后的上下文 token 预估值 */
+  compactionEstimatedTokensAfter?: number
   summary?: string
   output_file?: string
   last_tool_name?: string
@@ -353,8 +389,12 @@ export type ErrorCode =
   // 环境 / 配置类错误（本地可修复）
   | 'windows_shell_missing'
   | 'channel_not_found'
+  | 'channel_disabled'
+  | 'agent_provider_not_supported'
+  | 'agent_model_unavailable'
   | 'api_key_decrypt_failed'
   | 'claude_binary_not_found'
+  | 'agent_runtime_not_found'
   | 'session_busy'
   | 'unknown_error'
 
@@ -503,7 +543,13 @@ export type AgentEvent =
   | { type: 'usage_update'; usage: AgentEventUsage }
   // 上下文压缩
   | { type: 'compacting' }
-  | { type: 'compact_complete' }
+  | {
+    type: 'compact_complete'
+    status: 'success' | 'noop' | 'failed'
+    summary?: string
+    message?: string
+    estimatedTokensAfter?: number
+  }
   // 权限请求
   | { type: 'permission_request'; request: PermissionRequest }
   | { type: 'permission_resolved'; requestId: string; behavior: 'allow' | 'deny' }
@@ -575,10 +621,22 @@ export interface AgentSessionMeta {
   modelId?: string
   /** SDK 内部会话 ID（用于 resume 衔接上下文） */
   sdkSessionId?: string
+  /** Pi session JSONL 的精确路径；避免仅按 session ID 子串定位 artifact。 */
+  piSessionFile?: string
+  /** Proma assistant UI UUID 到 Pi 树状 session entry ID 的持久映射。 */
+  piEntryBindings?: Record<string, string>
+  /** 当前会话使用的 Agent runtime；历史会话缺省为 claude */
+  agentRuntime?: import('./agent-provider').AgentRuntime
+  /** ChatGPT Codex Fast Mode 开关；仅 Pi + ChatGPT OAuth 的受支持模型实际生效。 */
+  codexFastMode?: boolean
+  /** 本会话的 OpenAI（Codex OAuth / Responses API）推理深度；未设置时兼容旧版全局思考设置。 */
+  openAIThinkingLevel?: AgentThinkingLevel
   /** 所属工作区 ID */
   workspaceId?: string
   /** 是否置顶 */
   pinned?: boolean
+  /** 是否已星标（仅用于侧栏快速识别，不影响排序或置顶） */
+  starred?: boolean
   /** 是否已归档 */
   archived?: boolean
   /** 附加的外部目录路径列表（绝对路径，作为 SDK additionalDirectories 传递） */
@@ -780,7 +838,7 @@ export interface McpToolSummary {
 }
 
 /** Proma 内置 MCP 分类 */
-export type BuiltinMcpCategory = 'system' | 'automation' | 'collaboration' | 'memory' | 'media'
+export type BuiltinMcpCategory = 'system' | 'automation' | 'collaboration' | 'memory' | 'media' | 'browser'
 
 /** Proma 内置 MCP 摘要，不写入工作区 mcp.json */
 export interface BuiltinMcpServerSummary {
@@ -913,6 +971,8 @@ export interface AgentSendInput {
   channelId: string
   /** 模型 ID */
   modelId?: string
+  /** 本轮请求使用的 Agent runtime（用于输入区快速切换后的兜底同步） */
+  agentRuntime?: import('./agent-provider').AgentRuntime
   /** 工作区 ID（用于确定 cwd） */
   workspaceId?: string
   /** 附加的外部目录（绝对路径，传递给 SDK additionalDirectories） */
@@ -929,6 +989,8 @@ export interface AgentSendInput {
   mentionedSessionIds?: string[]
   /** 渲染进程生成的流式开始时间戳，主进程原样回传到 STREAM_COMPLETE，确保竞态保护比较的是同一个值 */
   startedAt?: number
+  /** 用户点击错误消息的重试时，指向本轮开始前应删除的错误 UUID。 */
+  retryOfErrorUuid?: string
   /** 触发来源：用户手动、定时任务、父 Agent 委派（用于 UI 区分标记） */
   triggeredBy?: 'user' | 'automation' | 'delegation'
   /** 定时任务执行上下文（注入到系统提示词，用户不可见） */
@@ -1059,6 +1121,8 @@ export interface AgentStreamEvent {
  */
 export interface AgentStreamCompletePayload {
   sessionId: string
+  /** 触发来源：用于区分顶层会话与父 Agent 委派的子会话完成 */
+  triggeredBy?: AgentSendInput['triggeredBy']
   /** 已持久化的完整消息列表 */
   messages?: AgentMessage[]
   /** 是否由用户手动中止 */
@@ -1380,6 +1444,8 @@ export const AGENT_IPC_CHANNELS = {
   MIGRATE_CHAT_TO_AGENT: 'agent:migrate-chat-to-agent',
   /** 切换会话置顶状态 */
   TOGGLE_PIN: 'agent:toggle-pin',
+  /** 切换会话星标状态 */
+  TOGGLE_STAR: 'agent:toggle-star',
   /** 清除会话完成状态（兼容清除旧版 manualWorking）。channel 值保留旧名以兼容已缓存的 preload */
   CLEAR_COMPLETION_STATE: 'agent:confirm-working-done',
   /** 切换会话归档状态 */
@@ -1534,6 +1600,8 @@ export const AGENT_IPC_CHANNELS = {
   OPEN_FILE: 'agent:open-file',
   /** 在系统文件管理器中显示文件 */
   SHOW_IN_FOLDER: 'agent:show-in-folder',
+  /** 使用系统终端打开文件夹 */
+  OPEN_FOLDER_IN_TERMINAL: 'agent:open-folder-in-terminal',
   /** 重命名文件/目录 */
   RENAME_FILE: 'agent:rename-file',
   /** 移动文件/目录到目标目录 */
@@ -1570,6 +1638,12 @@ export const AGENT_IPC_CHANNELS = {
   PERMISSION_RESPOND: 'agent:permission:respond',
   /** 热切换指定会话的权限模式（运行中生效，不广播到其他会话） */
   UPDATE_SESSION_PERMISSION_MODE: 'agent:update-session-permission-mode',
+  /** 切换指定会话的 Agent runtime（下一轮生效，跨 runtime 时清空 SDK resume ID） */
+  UPDATE_SESSION_AGENT_RUNTIME: 'agent:update-session-agent-runtime',
+  /** 切换指定会话的 ChatGPT Codex Fast Mode（下一轮 Pi 请求生效） */
+  UPDATE_SESSION_CODEX_FAST_MODE: 'agent:update-session-codex-fast-mode',
+  /** 更新指定会话的 OpenAI 推理设置（下一轮 Pi 请求生效） */
+  UPDATE_SESSION_OPENAI_REASONING: 'agent:update-session-openai-reasoning',
 
   // AskUserQuestion 交互式问答
   /** AskUser 响应（渲染进程 → 主进程） */

@@ -29,16 +29,22 @@ import type {
   AgentMessage,
 } from '@proma/shared'
 import { ClaudeAgentAdapter, scanAndKillOrphanedClaudeSubprocesses } from './adapters/claude-agent-adapter'
+import { PiAgentAdapter, cleanupPiRuntimeResources } from './adapters/pi-agent-adapter'
+import { RuntimeRoutingAgentAdapter } from './adapters/runtime-routing-agent-adapter'
 import { AgentEventBus } from './agent-event-bus'
 import { AgentOrchestrator } from './agent-orchestrator'
 import { getAgentSessionWorkspacePath, getWorkspaceFilesDir } from './config-paths'
 import { getAgentSessionMeta, updateAgentSessionMeta } from './agent-session-manager'
 import { setAgentStopper, setHeadlessAgentRunner } from './agent-headless-runner-registry'
+import { sendAgentStreamComplete } from './agent-completion-payload'
 
 // ===== 实例创建 =====
 
 const eventBus = new AgentEventBus()
-const adapter = new ClaudeAgentAdapter()
+const adapter = new RuntimeRoutingAgentAdapter({
+  claude: new ClaudeAgentAdapter(),
+  pi: new PiAgentAdapter(),
+})
 const orchestrator = new AgentOrchestrator(adapter, eventBus)
 
 /** 导出 EventBus 供飞书 Bridge 等外部服务订阅事件 */
@@ -158,8 +164,7 @@ export async function runAgent(
       },
       onComplete: (messages, opts) => {
         if (!webContents.isDestroyed()) {
-          webContents.send(AGENT_IPC_CHANNELS.STREAM_COMPLETE, {
-            sessionId: input.sessionId,
+          sendAgentStreamComplete(webContents, input, {
             messages,
             stoppedByUser: opts?.stoppedByUser ?? false,
             startedAt: opts?.startedAt,
@@ -190,8 +195,7 @@ export async function runAgent(
         sessionId: input.sessionId,
         error: errorMessage,
       })
-      webContents.send(AGENT_IPC_CHANNELS.STREAM_COMPLETE, {
-        sessionId: input.sessionId,
+      sendAgentStreamComplete(webContents, input, {
         messages: [],
         stoppedByUser: false,
       })
@@ -244,8 +248,7 @@ export async function runAgentHeadless(
         callbacks.onComplete(messages)
         // 同步到渲染进程
         if (wc && !wc.isDestroyed()) {
-          wc.send(AGENT_IPC_CHANNELS.STREAM_COMPLETE, {
-            sessionId: runInput.sessionId,
+          sendAgentStreamComplete(wc, runInput, {
             messages,
             stoppedByUser: opts?.stoppedByUser ?? false,
             startedAt: opts?.startedAt,
@@ -292,7 +295,11 @@ export async function runAgentHeadless(
     callbacks.onComplete()
     if (wc && !wc.isDestroyed()) {
       wc.send(AGENT_IPC_CHANNELS.STREAM_ERROR, { sessionId: runInput.sessionId, error: errorMessage })
-      wc.send(AGENT_IPC_CHANNELS.STREAM_COMPLETE, { sessionId: runInput.sessionId, messages: [], stoppedByUser: false, startedAt })
+      sendAgentStreamComplete(wc, runInput, {
+        messages: [],
+        stoppedByUser: false,
+        startedAt,
+      })
     }
   } finally {
     if (!orchestrator.isActive(runInput.sessionId)) {
@@ -348,6 +355,7 @@ export function stopAllAgents(): void {
  */
 export function killOrphanedClaudeSubprocesses(): void {
   scanAndKillOrphanedClaudeSubprocesses()
+  cleanupPiRuntimeResources()
 }
 
 /**
